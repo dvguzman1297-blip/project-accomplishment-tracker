@@ -11,6 +11,10 @@ export interface Contract {
   type: string | null;
   coordinates_new: string | null;
   coordinates_original: string | null;
+  old_latitude: number | null;
+  old_longitude: number | null;
+  new_latitude: number | null;
+  new_longitude: number | null;
   contractor: string | null;
   contractor_address: string | null;
   abc: number | null;

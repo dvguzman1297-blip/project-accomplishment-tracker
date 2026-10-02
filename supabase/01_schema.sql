@@ -35,9 +35,13 @@ create table if not exists tracker.contracts (
   type                   text,                            -- Bridge, Road, BEFF, MPB, ...
   coordinates_new        text,                            -- "COORDINATES (NEW)"
   coordinates_original   text,                            -- "COORDINATES (ORIGINAL)"
+  old_latitude           numeric(10, 8) check (old_latitude  between -90  and 90),
+  old_longitude          numeric(11, 8) check (old_longitude between -180 and 180),
+  new_latitude           numeric(10, 8) check (new_latitude  between -90  and 90),
+  new_longitude          numeric(11, 8) check (new_longitude between -180 and 180),
   contractor             text,
   contractor_address     text,
-  abc                    numeric(16,2) check (abc >= 0),  -- Approved Budget for the Contract
+  abc                  numeric(16,2) check (abc >= 0),  -- Approved Budget for the Contract
   bid_amount             numeric(16,2) check (bid_amount >= 0),
 
   -- Contract authorities

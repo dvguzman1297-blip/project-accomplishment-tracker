@@ -9,6 +9,7 @@ import { downloadCsv, type CsvColumn } from "@/lib/csv";
 import { STATUS_META, STATUS_OPTIONS, formatDate, formatPeso, isOverdue } from "@/lib/format";
 import type { Contract } from "@/lib/types";
 import { ContractDialog } from "./contract-dialog";
+import { CoordinateLink } from "./coordinate-link";
 import { Toolbar } from "./toolbar";
 
 const distinct = (xs: (string | null)[]) => [...new Set(xs.filter((x): x is string => !!x?.trim()))].sort();
@@ -62,6 +63,8 @@ export function ContractsPanel({ contracts, today }: { contracts: Contract[]; to
     },
     { key: "municipality", header: "Municipality", cell: (c) => c.municipality ?? "—", sort: (c) => c.municipality },
     { key: "type", header: "Type", cell: (c) => c.type ?? "—", sort: (c) => c.type },
+    { key: "old_location", header: "Old Location", cell: (c) => <CoordinateLink label="Old" lat={c.old_latitude} lng={c.old_longitude} /> },
+    { key: "new_location", header: "New Location", cell: (c) => <CoordinateLink label="New" lat={c.new_latitude} lng={c.new_longitude} /> },
     { key: "contractor", header: "Contractor", cell: (c) => <span className="line-clamp-2 max-w-[14rem]">{c.contractor ?? "—"}</span>, sort: (c) => c.contractor },
     { key: "bid_amount", header: "Bid amount", align: "right", cell: (c) => <span className="whitespace-nowrap">{formatPeso(c.bid_amount)}</span>, sort: (c) => c.bid_amount },
     { key: "ntp", header: "NTP", cell: (c) => <span className="whitespace-nowrap">{formatDate(c.ntp)}</span>, sort: (c) => c.ntp },

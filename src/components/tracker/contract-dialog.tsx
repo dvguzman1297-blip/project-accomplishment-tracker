@@ -36,7 +36,11 @@ function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (
       ) : (
         <Input
           id={id}
-          type={f.type ?? "text"}
+          type={f.type === "decimal" ? "text" : f.type ?? "text"}
+          inputMode={f.type === "decimal" ? "decimal" : undefined}
+          pattern={f.type === "decimal" ? "-?[0-9]+(\\.[0-9]+)?" : undefined}
+          title={f.type === "decimal" ? "Enter a decimal number, e.g. 14.599512" : undefined}
+          placeholder={f.placeholder}
           step={f.type === "number" ? "any" : undefined}
           min={f.min}
           max={f.max}

@@ -3,7 +3,8 @@ import { STATUS_OPTIONS } from "./format";
 export interface FieldDef {
   key: string;
   label: string;
-  type?: "text" | "number" | "date" | "textarea" | "select";
+  type?: "text" | "number" | "decimal" | "date" | "textarea" | "select";
+  placeholder?: string;
   wide?: boolean;
   required?: boolean;
   options?: { value: string; label: string }[];
@@ -24,6 +25,10 @@ export const CONTRACT_SECTIONS: { title: string; fields: FieldDef[] }[] = [
       { key: "type", label: "Type" },
       { key: "coordinates_new", label: "Coordinates (new)", type: "textarea" },
       { key: "coordinates_original", label: "Coordinates (original)", type: "textarea" },
+      { key: "old_latitude", label: "Old latitude", type: "decimal", placeholder: "14.599512" },
+      { key: "old_longitude", label: "Old longitude", type: "decimal", placeholder: "120.984222" },
+      { key: "new_latitude", label: "New latitude", type: "decimal", placeholder: "14.609115" },
+      { key: "new_longitude", label: "New longitude", type: "decimal", placeholder: "120.991043" },
     ],
   },
   {

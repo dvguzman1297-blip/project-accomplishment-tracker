@@ -13,6 +13,17 @@ const date = z.preprocess(clean, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter 
 const money = z.preprocess(clean, z.coerce.number().min(0, "Amounts cannot be negative").nullable());
 const whole = z.preprocess(clean, z.coerce.number().int("Enter a whole number").min(0, "Numbers cannot be negative").nullable());
 
+const coord = (label: string, max: number) =>
+  z.preprocess(
+    clean,
+    z
+      .string()
+      .regex(/^-?\d+(\.\d+)?$/, `${label} must be a decimal number`)
+      .transform(Number)
+      .refine((n) => Math.abs(n) <= max, `${label} must be between -${max} and ${max}`)
+      .nullable(),
+  );
+
 export const contractSchema = z.object({
   item_no: whole,
   contract_id: text,
@@ -22,6 +33,10 @@ export const contractSchema = z.object({
   type: text,
   coordinates_new: text,
   coordinates_original: text,
+  old_latitude: coord("Old latitude", 90),
+  old_longitude: coord("Old longitude", 180),
+  new_latitude: coord("New latitude", 90),
+  new_longitude: coord("New longitude", 180),
   contractor: text,
   contractor_address: text,
   abc: money,
