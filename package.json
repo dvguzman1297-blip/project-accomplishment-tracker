@@ -20,14 +20,17 @@
     "lucide-react": "^0.453.0",
     "next": "14.2.15",
     "next-themes": "^0.3.0",
+    "nodemailer": "^10.0.13",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "recharts": "^2.13.0",
+    "server-only": "^0.0.1",
     "tailwind-merge": "^2.5.0",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@types/node": "^20",
+    "@types/nodemailer": "^8.0.2",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "autoprefixer": "^10.4.20",

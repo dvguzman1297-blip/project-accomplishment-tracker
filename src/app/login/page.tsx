@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
 import { HardHat } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,9 @@ export default function LoginPage() {
           </div>
           {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
           <Submit />
+          <p className="text-center text-sm text-muted-foreground">
+            No account? <Link href="/register" className="underline">Create one</Link>
+          </p>
         </form>
       </section>
     </main>
