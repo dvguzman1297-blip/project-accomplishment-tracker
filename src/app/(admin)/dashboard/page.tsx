@@ -1,0 +1,84 @@
+import { createClient } from "@/lib/supabase/server";
+import type { Accomplishment, Contract, ProjectStatus } from "@/lib/types";
+import { STATUS_META, formatPesoCompact, isOverdue, todayManila } from "@/lib/format";
+import { KpiCards, type Kpi } from "@/components/dashboard/kpi-cards";
+import { DashboardCharts } from "@/components/dashboard/charts";
+
+export const dynamic = "force-dynamic";
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+export default async function DashboardPage() {
+  const supabase = createClient();
+  const [c, a] = await Promise.all([
+    supabase.from("contracts").select("*"),
+    supabase.from("accomplishments").select("*"),
+  ]);
+
+  if (c.error || a.error) {
+    return (
+      <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-4 text-sm">
+        <p className="font-medium">Couldn&apos;t load data.</p>
+        <p className="mt-1 text-muted-foreground">
+          {(c.error ?? a.error)?.message}. Check that the <code>tracker</code> schema is listed under Project Settings → API → Exposed schemas.
+        </p>
+      </div>
+    );
+  }
+
+  const contracts = (c.data ?? []) as Contract[];
+  const accomplishments = (a.data ?? []) as Accomplishment[];
+  const today = todayManila();
+
+  const total = contracts.length;
+  const completed = contracts.filter((x) => x.status === "completed").length;
+  const delayed = contracts.filter((x) => x.status === "delayed" || isOverdue(x, today)).length;
+  const pastExpiry = contracts.filter((x) => isOverdue(x, today)).length;
+  const totalBid = contracts.reduce((s, x) => s + (x.bid_amount ?? 0), 0);
+  const highImpact = accomplishments.filter((x) => x.impact === "high" || x.impact === "critical").length;
+
+  const kpis: Kpi[] = [
+    { label: "Contracts", value: String(total), sub: totalBid ? `${formatPesoCompact(totalBid)} total bid amount` : "No bid amounts recorded", icon: "contracts" },
+    { label: "Accomplishments", value: String(accomplishments.length), sub: `${highImpact} high or critical impact`, icon: "accomplishments" },
+    { label: "Completion rate", value: `${total ? Math.round((completed / total) * 100) : 0}%`, sub: `${completed} of ${total} contracts completed`, icon: "rate" },
+    { label: "Delayed", value: String(delayed), sub: `${pastExpiry} past expiry date`, icon: "delayed", alert: delayed > 0 },
+  ];
+
+  // Trend: accomplishments per month + running total
+  const byMonth = new Map<string, number>();
+  accomplishments.forEach((x) => {
+    if (!x.date_completed) return;
+    const k = x.date_completed.slice(0, 7);
+    byMonth.set(k, (byMonth.get(k) ?? 0) + 1);
+  });
+  let running = 0;
+  const trend = [...byMonth.entries()]
+    .sort(([x], [y]) => x.localeCompare(y))
+    .map(([k, n]) => {
+      running += n;
+      const [y, m] = k.split("-").map(Number);
+      return { label: `${MONTHS[m - 1]} ${y}`, monthly: n, cumulative: running };
+    });
+
+  const status = (Object.keys(STATUS_META) as ProjectStatus[])
+    .map((s) => ({ name: STATUS_META[s].label, value: contracts.filter((x) => x.status === s).length, color: STATUS_META[s].color }))
+    .filter((s) => s.value > 0);
+
+  const muni = new Map<string, number>();
+  contracts.forEach((x) => {
+    const k = x.municipality?.trim() || "Unassigned";
+    muni.set(k, (muni.get(k) ?? 0) + 1);
+  });
+  const municipality = [...muni.entries()].map(([name, value]) => ({ name, value })).sort((x, y) => y.value - x.value);
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-semibold tracking-tight">Dashboard</h1>
+        <p className="text-sm text-muted-foreground">Contract progress and accomplishments to date.</p>
+      </div>
+      <KpiCards items={kpis} />
+      <DashboardCharts trend={trend} status={status} municipality={municipality} />
+    </div>
+  );
+}
