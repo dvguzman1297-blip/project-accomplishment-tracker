@@ -96,7 +96,9 @@ function Panel({
                 className={cn(
                   "flex w-full items-center gap-3 rounded-md py-2 text-sm transition-colors",
                   collapsed ? "justify-center px-0" : "px-3",
-                  active ? "bg-muted font-semibold text-foreground" : "font-medium text-muted-foreground hover:bg-muted/60 hover:text-foreground",
+                  active
+                    ? "bg-blue-50 font-semibold text-blue-700 dark:bg-blue-950/50 dark:text-blue-400"
+                    : "font-medium text-muted-foreground hover:bg-blue-50/60 hover:text-foreground dark:hover:bg-blue-950/30",
                 )}
               >
                 <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />

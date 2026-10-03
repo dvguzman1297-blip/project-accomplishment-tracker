@@ -39,8 +39,8 @@ export function DashboardCharts({ trend, status, municipality }: { trend: TrendP
                 <YAxis allowDecimals={false} tick={tick} tickLine={false} axisLine={false} />
                 <Tooltip {...tip} />
                 <Legend wrapperStyle={{ fontSize: 12 }} />
-                <Bar dataKey="monthly" name="Completed in month" fill="#2f6fa3" radius={[3, 3, 0, 0]} maxBarSize={36} />
-                <Line dataKey="cumulative" name="Running total" stroke="#e0a100" strokeWidth={2} dot={{ r: 3 }} />
+                <Bar dataKey="monthly" name="Completed in month" fill="#2563eb" radius={[3, 3, 0, 0]} maxBarSize={36} />
+                <Line dataKey="cumulative" name="Running total" stroke="#0891b2" strokeWidth={2} dot={{ r: 3 }} />
               </ComposedChart>
             </ResponsiveContainer>
           )}
@@ -74,7 +74,7 @@ export function DashboardCharts({ trend, status, municipality }: { trend: TrendP
                 <XAxis type="number" allowDecimals={false} tick={tick} tickLine={false} axisLine={false} />
                 <YAxis type="category" dataKey="name" width={120} tick={tick} tickLine={false} axisLine={false} />
                 <Tooltip {...tip} />
-                <Bar dataKey="value" name="Contracts" fill="#2f6fa3" radius={[0, 3, 3, 0]} maxBarSize={22} />
+                <Bar dataKey="value" name="Contracts" fill="#2563eb" radius={[0, 3, 3, 0]} maxBarSize={22} />
               </BarChart>
             </ResponsiveContainer>
           )}

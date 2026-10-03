@@ -2,7 +2,7 @@ import type { Contract, Impact, ProjectStatus } from "./types";
 
 export const STATUS_META: Record<ProjectStatus, { label: string; full: string; cls: string; color: string }> = {
   nys: { label: "NYS", full: "Not Yet Started", cls: "bg-slate-500/15 text-slate-700 dark:text-slate-300", color: "#64748b" },
-  ongoing: { label: "Ongoing", full: "Ongoing", cls: "bg-sky-600/15 text-sky-800 dark:text-sky-300", color: "#2f6fa3" },
+  ongoing: { label: "Ongoing", full: "Ongoing", cls: "bg-sky-600/15 text-sky-800 dark:text-sky-300", color: "#2563eb" },
   completed: { label: "Completed", full: "Completed", cls: "bg-emerald-600/15 text-emerald-800 dark:text-emerald-300", color: "#2e8b57" },
   suspended: { label: "Suspended", full: "Suspended", cls: "bg-amber-500/20 text-amber-900 dark:text-amber-300", color: "#c28a00" },
 };
