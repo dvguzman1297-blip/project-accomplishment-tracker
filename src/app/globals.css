@@ -42,6 +42,16 @@
     --input: 210 16% 26%;
     --ring: 41 92% 56%;
   }
+  /* Tells the browser to draw native controls (select lists, date pickers, checkboxes, scrollbars) in the active theme */
+  :root { color-scheme: light; }
+  .dark { color-scheme: dark; }
+  select option,
+  select optgroup {
+    background-color: hsl(var(--card));
+    color: hsl(var(--card-foreground));
+  }
+  select option:checked { background-color: hsl(var(--secondary)); }
+  select option:disabled { color: hsl(var(--muted-foreground)); }
   * { @apply border-border; }
   body { @apply bg-background text-foreground antialiased; font-feature-settings: "tnum" 1; }
   :focus-visible { @apply outline-none ring-2 ring-ring ring-offset-2 ring-offset-background; }

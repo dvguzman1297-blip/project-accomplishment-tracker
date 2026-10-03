@@ -1,12 +1,13 @@
 "use client";
 import { useMemo, useState } from "react";
-import { Columns3, Paperclip, Printer } from "lucide-react";
+import { Columns3, Paperclip, Printer, SlidersHorizontal } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { DateInput } from "@/components/ui/date-input";
-import { Select } from "@/components/ui/input";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+import { LabeledSelect } from "@/components/ui/labeled-select";
+import { Popover } from "@/components/ui/popover";
 import { RoadProgress } from "@/components/ui/road-progress";
 import { CONTRACT_FIELDS } from "@/lib/contract-fields";
 import { downloadCsv, type CsvColumn } from "@/lib/csv";
@@ -208,6 +209,16 @@ export function ContractsPanel({
     });
   }, [contracts, haystacks, q, municipality, type, status, inspector, contractor, from, to, includeUndated, today]);
 
+  const activeFilters = [municipality, type, inspector, contractor, status].filter(Boolean).length + (hiddenCols.size > 0 ? 1 : 0);
+  const clearFilters = () => {
+    setMunicipality("");
+    setType("");
+    setInspector("");
+    setContractor("");
+    setStatus("");
+    setHiddenCols(new Set());
+  };
+
   const visible = SPECS.filter((s) => !hiddenCols.has(s.key));
   const toggleCol = (key: string) =>
     setHiddenCols((s) => {
@@ -251,71 +262,83 @@ export function ContractsPanel({
           onCreate={() => setEditing("new")}
           onExport={() => downloadCsv("contracts.csv", csvCols, rows)}
           actions={
-            <>
-              <details className="relative">
-                <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-card px-4 text-sm font-medium hover:bg-secondary">
-                  <Columns3 className="h-4 w-4" /> Columns
-                </summary>
-                <div className="absolute right-0 z-30 mt-1 max-h-96 w-64 overflow-y-auto rounded-md border bg-card p-3 shadow-lg">
-                  <div className="mb-1 flex items-center justify-between">
-                    <p className="text-xs font-semibold text-muted-foreground">Show columns</p>
-                    <button type="button" className="text-xs text-primary hover:underline" onClick={() => setHiddenCols(new Set())}>Show all</button>
-                  </div>
-                  {GROUPS.map((g) => (
-                    <div key={g} className="mt-2">
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{g}</p>
-                      {SPECS.filter((s) => s.group === g).map((s) => (
-                        <Checkbox key={s.key} checked={!hiddenCols.has(s.key)} onChange={() => toggleCol(s.key)}>{s.header}</Checkbox>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-              </details>
-              <Button variant="outline" onClick={openPrint}>
-                <Printer className="h-4 w-4" /> Print{ticked.length ? ` (${ticked.length})` : ""}
-              </Button>
-            </>
+            <Button variant="ghost" size="icon" className="relative border border-input text-muted-foreground hover:text-foreground" onClick={openPrint} title={ticked.length ? `Print ${ticked.length} selected` : "Print"} aria-label="Print">
+              <Printer className="h-4 w-4" />
+              {ticked.length > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 rounded-full bg-primary px-1 text-[10px] leading-4 text-primary-foreground">{ticked.length}</span>
+              )}
+            </Button>
           }
           filters={
             <>
-              <Select value={municipality} onChange={(e) => setMunicipality(e.target.value)} className="w-auto" aria-label="Filter by municipality">
-                <option value="">All municipalities</option>
-                {distinct(contracts.map((c) => c.municipality)).map((m) => <option key={m}>{m}</option>)}
-              </Select>
-              <Select value={type} onChange={(e) => setType(e.target.value)} className="w-auto" aria-label="Filter by type">
-                <option value="">All types</option>
-                {distinct(contracts.map((c) => c.type)).map((t) => <option key={t}>{t}</option>)}
-              </Select>
-              <Select value={inspector} onChange={(e) => setInspector(e.target.value)} className="w-auto" aria-label="Filter by inspector">
-                <option value="">All inspectors</option>
-                {distinct(contracts.map((c) => c.project_inspector)).map((m) => <option key={m}>{m}</option>)}
-              </Select>
-              <Select value={contractor} onChange={(e) => setContractor(e.target.value)} className="w-auto max-w-[14rem]" aria-label="Filter by contractor">
-                <option value="">All contractors</option>
-                {distinct(contracts.map((c) => c.contractor)).map((m) => <option key={m}>{m}</option>)}
-              </Select>
-              <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto" aria-label="Filter by status">
-                <option value="">All statuses</option>
-                {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                <option value="overdue">Past expiry</option>
-              </Select>
+              <Popover
+                active={activeFilters > 0}
+                panelClassName="w-[22rem] max-h-[75vh] overflow-y-auto"
+                trigger={
+                  <>
+                    <SlidersHorizontal className="h-4 w-4 text-muted-foreground" />
+                    Filters{activeFilters > 0 && ` (${activeFilters})`}
+                  </>
+                }
+              >
+                <div className="space-y-2">
+                  <LabeledSelect label="Municipality" value={municipality} onChange={(e) => setMunicipality(e.target.value)}>
+                    <option value="">All</option>
+                    {distinct(contracts.map((c) => c.municipality)).map((m) => <option key={m}>{m}</option>)}
+                  </LabeledSelect>
+                  <LabeledSelect label="Type" value={type} onChange={(e) => setType(e.target.value)}>
+                    <option value="">All</option>
+                    {distinct(contracts.map((c) => c.type)).map((t) => <option key={t}>{t}</option>)}
+                  </LabeledSelect>
+                  <LabeledSelect label="Inspector" value={inspector} onChange={(e) => setInspector(e.target.value)}>
+                    <option value="">All</option>
+                    {distinct(contracts.map((c) => c.project_inspector)).map((m) => <option key={m}>{m}</option>)}
+                  </LabeledSelect>
+                  <LabeledSelect label="Contractor" value={contractor} onChange={(e) => setContractor(e.target.value)}>
+                    <option value="">All</option>
+                    {distinct(contracts.map((c) => c.contractor)).map((m) => <option key={m}>{m}</option>)}
+                  </LabeledSelect>
+                  <LabeledSelect label="Status" value={status} onChange={(e) => setStatus(e.target.value)}>
+                    <option value="">All</option>
+                    {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    <option value="overdue">Past expiry</option>
+                  </LabeledSelect>
+                </div>
+
+                <div className="mt-3 border-t pt-3">
+                  <div className="mb-1 flex items-center justify-between">
+                    <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground">
+                      <Columns3 className="h-3.5 w-3.5" /> Columns{hiddenCols.size > 0 && ` (${hiddenCols.size} hidden)`}
+                    </p>
+                    <button type="button" className="text-xs text-primary hover:underline" onClick={() => setHiddenCols(new Set())}>Show all</button>
+                  </div>
+                  <div className="max-h-52 overflow-y-auto pr-1">
+                    {GROUPS.map((g) => (
+                      <div key={g} className="mt-2 first:mt-0">
+                        <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{g}</p>
+                        {SPECS.filter((s) => s.group === g).map((s) => (
+                          <Checkbox key={s.key} checked={!hiddenCols.has(s.key)} onChange={() => toggleCol(s.key)}>{s.header}</Checkbox>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-3 flex justify-end border-t pt-3">
+                  <Button variant="ghost" size="sm" disabled={activeFilters === 0} onClick={clearFilters}>Clear filters</Button>
+                </div>
+              </Popover>
+              <DateRangePicker
+                from={from}
+                to={to}
+                onChange={(f, t) => { setFrom(f); setTo(t); }}
+                today={today}
+                includeUndated={includeUndated}
+                onIncludeUndated={setIncludeUndated}
+              />
             </>
           }
         />
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-xs text-muted-foreground">Start date from</span>
-          <DateInput value={from} onChange={setFrom} className="w-40" aria-label="From date" />
-          <span className="text-xs text-muted-foreground">to</span>
-          <DateInput value={to} onChange={setTo} className="w-40" aria-label="To date" />
-          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
-            <input type="checkbox" checked={includeUndated} onChange={(e) => setIncludeUndated(e.target.checked)} /> Include contracts with no start date
-          </label>
-          {from || to ? (
-            <Button variant="ghost" size="sm" onClick={() => { setFrom(""); setTo(""); }}>All dates</Button>
-          ) : (
-            <Button variant="ghost" size="sm" onClick={() => { setFrom(`${year}-01-01`); setTo(`${year}-12-31`); }}>This year</Button>
-          )}
-        </div>
         <DataTable
           rows={rows}
           columns={columns}
