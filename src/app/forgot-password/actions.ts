@@ -23,7 +23,7 @@ export async function requestReset(_prev: State, formData: FormData): Promise<St
 
     const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
     const link = `${base}/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=recovery`;
-    await sendMail({
+    const mail = await sendMail({
       to: email,
       subject: "Reset your password",
       text: `Reset your password for the Project Accomplishment Tracker:\n\n${link}\n\nIf you didn't request this, ignore this email.`,
@@ -31,6 +31,7 @@ export async function requestReset(_prev: State, formData: FormData): Promise<St
 <p><a href="${escapeHtml(link)}">Reset my password</a></p>
 <p style="color:#666;font-size:12px">If you didn't request this, ignore this email.</p>`,
     });
+    if (!mail.ok) return { error: "We couldn't send the reset email. Try again later." };
   } catch (e) {
     console.error("password reset failed", e);
     return { error: "We couldn't send the reset email. Try again later." };

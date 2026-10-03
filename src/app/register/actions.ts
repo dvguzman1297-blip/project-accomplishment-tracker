@@ -33,7 +33,7 @@ export async function register(_prev: State, formData: FormData): Promise<State>
   }
 
   try {
-    // Creates the (unconfirmed) user and returns a verification link we email ourselves via Gmail.
+    // Creates the (unconfirmed) user and returns a verification link we email ourselves via Resend.
     const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "signup", email, password, options: { data: { full_name: name } } });
     if (error) {
       if (/already|registered/i.test(error.message)) return { error: "An account with this email already exists." };
@@ -43,7 +43,7 @@ export async function register(_prev: State, formData: FormData): Promise<State>
     const base = (process.env.NEXT_PUBLIC_SITE_URL ?? "http://localhost:3000").replace(/\/$/, "");
     const link = `${base}/auth/confirm?token_hash=${encodeURIComponent(data.properties.hashed_token)}&type=signup`;
 
-    await sendMail({
+    const mail = await sendMail({
       to: email,
       subject: "Confirm your account",
       text: `Confirm your account for the Project Accomplishment Tracker:\n\n${link}\n\nIf you didn't sign up, ignore this email.`,
@@ -51,6 +51,7 @@ export async function register(_prev: State, formData: FormData): Promise<State>
 <p><a href="${escapeHtml(link)}">Confirm my email</a></p>
 <p style="color:#666;font-size:12px">If you didn't sign up, ignore this email.</p>`,
     });
+    if (!mail.ok) return { error: "We couldn't send the confirmation email. Try again later." };
   } catch (e) {
     console.error("register failed", e);
     return { error: "We couldn't send the confirmation email. Try again later." };

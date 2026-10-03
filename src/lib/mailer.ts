@@ -1,18 +1,35 @@
 import "server-only";
-import nodemailer, { type Transporter } from "nodemailer";
+import { getResend } from "@/lib/resend";
 
-let transporter: Transporter | undefined;
+/** Verified sender addresses on deckspace.site. */
+export const SENDERS = {
+  notifications: "Deckspace <notifications@deckspace.site>",
+  invites: "Deckspace <invites@deckspace.site>",
+} as const;
 
-function getTransporter() {
-  const user = process.env.GMAIL_USER;
-  const pass = process.env.GMAIL_APP_PASSWORD;
-  if (!user || !pass) throw new Error("GMAIL_USER and GMAIL_APP_PASSWORD are not set.");
-  return (transporter ??= nodemailer.createTransport({ service: "gmail", auth: { user, pass } }));
-}
+export type MailResult = { ok: true; id: string } | { ok: false; error: string };
 
-export async function sendMail(opts: { to: string; subject: string; html: string; text: string }) {
-  await getTransporter().sendMail({
-    from: `"Project Accomplishment Tracker" <${process.env.GMAIL_USER}>`,
-    ...opts,
-  });
+export async function sendMail(opts: {
+  to: string | string[];
+  subject: string;
+  html: string;
+  text: string;
+  from?: string;
+}): Promise<MailResult> {
+  try {
+    const { from = SENDERS.notifications, to, ...rest } = opts;
+    const { data, error } = await getResend().emails.send({
+      from,
+      to: Array.isArray(to) ? to : to.split(",").map((a) => a.trim()).filter(Boolean),
+      ...rest,
+    });
+    if (error || !data) {
+      console.error("resend send failed", error);
+      return { ok: false, error: error?.message ?? "Unknown Resend error" };
+    }
+    return { ok: true, id: data.id };
+  } catch (e) {
+    console.error("resend send threw", e);
+    return { ok: false, error: e instanceof Error ? e.message : "Unknown error" };
+  }
 }

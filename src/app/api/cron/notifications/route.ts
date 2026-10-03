@@ -32,22 +32,18 @@ export async function GET(request: NextRequest) {
   const fresh = buildNotices((contracts.data ?? []) as Contract[], todayManila()).filter((n) => !sent.has(`${n.contractId}:${n.kind}`));
   if (fresh.length === 0) return NextResponse.json({ sent: 0 });
 
-  const to = (process.env.NOTIFY_EMAILS || process.env.GMAIL_USER || "").trim();
+  const to = (process.env.NOTIFY_EMAILS ?? "").trim();
   if (!to) return NextResponse.json({ error: "NOTIFY_EMAILS is not set." }, { status: 500 });
 
-  try {
-    await sendMail({
+  const mail = await sendMail({
       to,
       subject: `As-Built Plan: ${fresh.length} contract${fresh.length === 1 ? "" : "s"} need a request`,
       text: fresh.map((n) => `- ${n.title}\n  ${n.detail}`).join("\n\n"),
       html: `<p>Please request a copy of the As-Built Plan for:</p><ul>${fresh
         .map((n) => `<li><strong>${esc(n.title)}</strong><br>${esc(n.detail)}</li>`)
         .join("")}</ul>`,
-    });
-  } catch (e) {
-    console.error("notification email failed", e);
-    return NextResponse.json({ error: "Email failed" }, { status: 502 });
-  }
+  });
+  if (!mail.ok) return NextResponse.json({ error: "Email failed", detail: mail.error }, { status: 502 });
 
   // Record only after a successful send so a failed run retries
   const { error } = await db.from("notification_log").insert(fresh.map((n) => ({ contract_id: n.contractId, kind: n.kind })));
