@@ -7,6 +7,7 @@ type State = { error?: string; success?: string };
 
 const schema = z
   .object({
+    name: z.string().trim().min(2, "Enter your full name.").max(80, "Name is too long."),
     email: z.string().trim().toLowerCase().email("Enter a valid email address."),
     password: z.string().min(8, "Password must be at least 8 characters."),
     confirm: z.string(),
@@ -17,12 +18,13 @@ const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt
 
 export async function register(_prev: State, formData: FormData): Promise<State> {
   const parsed = schema.safeParse({
+    name: formData.get("name"),
     email: formData.get("email"),
     password: formData.get("password"),
     confirm: formData.get("confirm"),
   });
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const { email, password } = parsed.data;
+  const { name, email, password } = parsed.data;
 
   // Optional allow-list, e.g. REGISTER_ALLOWED_DOMAINS=pimes.com.ph,example.com
   const allowed = (process.env.REGISTER_ALLOWED_DOMAINS ?? "").split(",").map((d) => d.trim().toLowerCase()).filter(Boolean);
@@ -32,7 +34,7 @@ export async function register(_prev: State, formData: FormData): Promise<State>
 
   try {
     // Creates the (unconfirmed) user and returns a verification link we email ourselves via Gmail.
-    const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "signup", email, password });
+    const { data, error } = await createAdminClient().auth.admin.generateLink({ type: "signup", email, password, options: { data: { full_name: name } } });
     if (error) {
       if (/already|registered/i.test(error.message)) return { error: "An account with this email already exists." };
       return { error: error.message };

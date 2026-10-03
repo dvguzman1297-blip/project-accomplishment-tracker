@@ -21,6 +21,10 @@ export default function RegisterPage() {
     <AuthCard title="Create account" subtitle="Register to access your workspace">
       <form action={action} className="space-y-4">
         <div>
+          <Label htmlFor="name">Full name</Label>
+          <Input id="name" name="name" autoComplete="name" minLength={2} maxLength={80} required />
+        </div>
+        <div>
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" autoComplete="email" required />
         </div>
