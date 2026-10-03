@@ -39,6 +39,14 @@ export default async function DashboardPage() {
   const totalBid = contracts.reduce((s, x) => s + (x.bid_amount ?? 0), 0);
   const highImpact = accomplishments.filter((x) => x.impact === "high" || x.impact === "critical").length;
 
+  const count = (st: ProjectStatus) => contracts.filter((x) => x.status === st).length;
+  const pct = (n: number) => `${total ? Math.round((n / total) * 100) : 0}% of ${total} contracts`;
+  const statusKpis: Kpi[] = [
+    { label: "Ongoing projects", value: String(count("ongoing")), sub: pct(count("ongoing")), icon: "ongoing", href: "/tracker?status=ongoing&range=all" },
+    { label: "Not yet started (NYS)", value: String(count("nys")), sub: pct(count("nys")), icon: "nys", href: "/tracker?status=nys&range=all" },
+    { label: "Suspended projects", value: String(count("suspended")), sub: pct(count("suspended")), icon: "suspended", alert: count("suspended") > 0, href: "/tracker?status=suspended&range=all" },
+  ];
+
   const kpis: Kpi[] = [
     { label: "Contracts", value: String(total), sub: totalBid ? `${formatPeso(totalBid)} total bid amount` : "No bid amounts recorded", icon: "contracts", href: "/tracker?range=all" },
     { label: "Accomplishments", value: String(accomplishments.length), sub: `${highImpact} high or critical impact`, icon: "accomplishments", href: "/tracker?tab=accomplishments" },
@@ -80,6 +88,7 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground">Contract progress and accomplishments to date.</p>
       </div>
       <KpiCards items={kpis} />
+      <KpiCards items={statusKpis} columns={3} />
       <NotificationsPanel notices={buildNotices(contracts, today)} contracts={contracts} />
       <DashboardCharts trend={trend} status={status} municipality={municipality} />
     </div>
