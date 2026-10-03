@@ -1,4 +1,4 @@
-export type ProjectStatus = "not_started" | "in_progress" | "completed" | "on_hold" | "delayed";
+export type ProjectStatus = "nys" | "ongoing" | "completed" | "suspended";
 export type Impact = "low" | "medium" | "high" | "critical";
 
 export interface Contract {
@@ -11,10 +11,6 @@ export interface Contract {
   type: string | null;
   coordinates_new: string | null;
   coordinates_original: string | null;
-  old_latitude: number | null;
-  old_longitude: number | null;
-  new_latitude: number | null;
-  new_longitude: number | null;
   contractor: string | null;
   contractor_address: string | null;
   abc: number | null;
@@ -36,6 +32,8 @@ export interface Contract {
   progress_percentage: number;
   actual_completion_date: string | null;
   remarks: string | null;
+  as_built_request_form_path: string | null;
+  as_built_plan_path: string | null;
   created_at: string;
   updated_at: string;
 }

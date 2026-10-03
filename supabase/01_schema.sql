@@ -9,7 +9,7 @@ create schema if not exists tracker;
 
 do $$ begin
   create type tracker.project_status as enum
-    ('not_started', 'in_progress', 'completed', 'on_hold', 'delayed');
+    ('nys', 'ongoing', 'completed', 'suspended');  -- NYS = Not Yet Started
 exception when duplicate_object then null; end $$;
 
 do $$ begin
@@ -35,10 +35,6 @@ create table if not exists tracker.contracts (
   type                   text,                            -- Bridge, Road, BEFF, MPB, ...
   coordinates_new        text,                            -- "COORDINATES (NEW)"
   coordinates_original   text,                            -- "COORDINATES (ORIGINAL)"
-  old_latitude           numeric(10, 8) check (old_latitude  between -90  and 90),
-  old_longitude          numeric(11, 8) check (old_longitude between -180 and 180),
-  new_latitude           numeric(10, 8) check (new_latitude  between -90  and 90),
-  new_longitude          numeric(11, 8) check (new_longitude between -180 and 180),
   contractor             text,
   contractor_address     text,
   abc                  numeric(16,2) check (abc >= 0),  -- Approved Budget for the Contract
@@ -52,19 +48,24 @@ create table if not exists tracker.contracts (
   project_engineer       text,
   project_inspector      text,
 
-  -- Pre-construction data
+  -- Pre-construction data, in lifecycle order: Bid -> NTP -> NOA -> CD -> CAD
   bid_out                date,
-  noa                    date,                            -- Notice of Award
   ntp                    date,                            -- Notice to Proceed
-  contract_approval_date date,
+  noa                    date,                            -- Notice of Award
   contract_duration      integer check (contract_duration >= 0),  -- "CD" (calendar days)
+  contract_approval_date date,                            -- "CAD"
 
-  -- Construction data (same formulas as the workbook: Start = NTP, Expiry = NTP + CD - 1)
-  start_date             date generated always as (ntp) stored,
-  expiry_date            date generated always as (ntp + (contract_duration - 1)) stored,
+  -- Construction data. Start defaults to NTP (trigger below) but can be overridden.
+  -- Expiry = Start + CD - 1 (consecutive calendar days, start day inclusive)
+  start_date             date,
+  expiry_date            date generated always as (start_date + (contract_duration - 1)) stored,
+
+  -- Attachments (paths inside the private `as-builts` storage bucket)
+  as_built_request_form_path text,
+  as_built_plan_path     text,
 
   -- Accomplishment tracking
-  status                 tracker.project_status not null default 'not_started',
+  status                 tracker.project_status not null default 'nys',
   progress_percentage    integer not null default 0 check (progress_percentage between 0 and 100),
   actual_completion_date date,
   remarks                text,
@@ -95,13 +96,43 @@ drop trigger if exists trg_contracts_updated_at on tracker.contracts;
 create trigger trg_contracts_updated_at before update on tracker.contracts
   for each row execute function tracker.set_updated_at();
 
+create or replace function tracker.default_start_date()
+returns trigger language plpgsql as $$
+begin
+  new.start_date = coalesce(new.start_date, new.ntp);
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_contracts_start_date on tracker.contracts;
+create trigger trg_contracts_start_date before insert or update on tracker.contracts
+  for each row execute function tracker.default_start_date();
+
 drop trigger if exists trg_accomplishments_updated_at on tracker.accomplishments;
 create trigger trg_accomplishments_updated_at before update on tracker.accomplishments
   for each row execute function tracker.set_updated_at();
 
+-- Which automated As-Built notices were already emailed (one per contract and kind)
+create table if not exists tracker.notification_log (
+  contract_id uuid not null references tracker.contracts(id) on delete cascade,
+  kind        text not null,                              -- expiry_5 | progress_95
+  sent_at     timestamptz not null default now(),
+  primary key (contract_id, kind)
+);
+
+-- Private bucket for As-Built Request Forms and As-Built Plans
+insert into storage.buckets (id, name, public, file_size_limit)
+values ('as-builts', 'as-builts', false, 10485760)
+on conflict (id) do nothing;
+
+drop policy if exists "as-builts admin access" on storage.objects;
+create policy "as-builts admin access" on storage.objects
+  for all to authenticated using (bucket_id = 'as-builts') with check (bucket_id = 'as-builts');
+
 -- Single-role (Admin) RLS: any authenticated user has full access; anon has none
-alter table tracker.contracts       enable row level security;
-alter table tracker.accomplishments enable row level security;
+alter table tracker.contracts         enable row level security;
+alter table tracker.accomplishments   enable row level security;
+alter table tracker.notification_log  enable row level security;
 
 drop policy if exists "admin full access" on tracker.contracts;
 create policy "admin full access" on tracker.contracts

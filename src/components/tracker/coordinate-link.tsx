@@ -1,70 +1,77 @@
 "use client";
 import { useState } from "react";
+import { Route } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { parseCoordinates, pointUrl, routeUrl } from "@/lib/coordinates";
 
-const toNumber = (v: number | string | null | undefined) => {
-  if (v === null || v === undefined || (typeof v === "string" && v.trim() === "")) return null;
-  const n = Number(v);
-  return Number.isFinite(n) ? n : null;
-};
+const pin =
+  "inline-flex items-center gap-1 whitespace-nowrap rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/20";
 
-export function mapsUrl(lat: number, lng: number) {
-  return `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
-}
+/**
+ * Clickable coordinates. `value` holds one or more "LABEL: lat, lng" pairs; each opens Google Maps
+ * in a new tab, and when there are two or more a route link plots start -> end.
+ */
+export function CoordinateLink({ label, value }: { label: string; value: string | null | undefined }) {
+  const [copied, setCopied] = useState<string>();
+  const { points } = parseCoordinates(value);
 
-/** Badge that opens a coordinate pair in Google Maps; a copy button sits beside it. */
-export function CoordinateLink({
-  label,
-  lat,
-  lng,
-}: {
-  label: string;
-  lat: number | string | null | undefined;
-  lng: number | string | null | undefined;
-}) {
-  const [copied, setCopied] = useState(false);
-  const la = toNumber(lat);
-  const ln = toNumber(lng);
+  if (points.length === 0) return <Badge className="bg-muted text-muted-foreground">No coordinates</Badge>;
 
-  if (la === null || ln === null || Math.abs(la) > 90 || Math.abs(ln) > 180) {
-    return <Badge className="bg-muted text-muted-foreground">No coordinates</Badge>;
-  }
-
-  const text = `${la},${ln}`;
-  const copy = async (e: React.MouseEvent) => {
+  const route = routeUrl(points);
+  const copy = async (e: React.MouseEvent, text: string) => {
     e.stopPropagation(); // row click opens the edit dialog
     try {
       await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 1500);
+      setCopied(text);
+      setTimeout(() => setCopied(undefined), 1500);
     } catch {
-      /* clipboard unavailable (insecure context); the link still works */
+      /* clipboard unavailable; the links still work */
     }
   };
 
   return (
-    <span className="inline-flex items-center gap-1">
-      <a
-        href={mapsUrl(la, ln)}
-        target="_blank"
-        rel="noopener noreferrer"
-        onClick={(e) => e.stopPropagation()}
-        title={`Open ${label.toLowerCase()} location in Google Maps (${text})`}
-        aria-label={`${label} location ${text}, open in Google Maps`}
-        className="inline-flex items-center gap-1 whitespace-nowrap rounded-sm bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary hover:bg-primary/20 focus-visible:outline focus-visible:outline-2"
-      >
-        <span aria-hidden>📍</span>
-        {la.toFixed(4)}, {ln.toFixed(4)}
-      </a>
-      <button
-        type="button"
-        onClick={copy}
-        title="Copy coordinates"
-        aria-label={`Copy ${label.toLowerCase()} coordinates`}
-        className="rounded-sm px-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
-      >
-        {copied ? "Copied" : "Copy"}
-      </button>
-    </span>
+    <div className="flex flex-col items-start gap-1">
+      {points.map((p, i) => {
+        const text = `${p.lat},${p.lng}`;
+        return (
+          <span key={i} className="inline-flex items-center gap-1">
+            <a
+              href={pointUrl(p)}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              title={`${label} ${p.label.toLowerCase()}: open ${text} in Google Maps`}
+              aria-label={`${label} ${p.label.toLowerCase()} ${text}, open in Google Maps`}
+              className={pin}
+            >
+              <span aria-hidden>📍</span>
+              <span className="text-[10px] uppercase opacity-70">{p.label}</span>
+              {p.lat.toFixed(5)}, {p.lng.toFixed(5)}
+            </a>
+            <button
+              type="button"
+              onClick={(e) => copy(e, text)}
+              title="Copy coordinates"
+              aria-label={`Copy ${label.toLowerCase()} ${p.label.toLowerCase()} coordinates`}
+              className="rounded-sm px-1 text-xs text-muted-foreground hover:bg-muted hover:text-foreground"
+            >
+              {copied === text ? "Copied" : "Copy"}
+            </button>
+          </span>
+        );
+      })}
+      {route && (
+        <a
+          href={route}
+          target="_blank"
+          rel="noopener noreferrer"
+          onClick={(e) => e.stopPropagation()}
+          title="Plot start and end locations in Google Maps"
+          className="inline-flex items-center gap-1 text-xs font-medium text-primary underline-offset-2 hover:underline"
+        >
+          <Route className="h-3 w-3" /> Plot route
+        </a>
+      )}
+    </div>
   );
 }

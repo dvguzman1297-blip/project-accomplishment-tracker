@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { CircleCheckBig, FileStack, Trophy, TriangleAlert } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -8,6 +9,7 @@ export interface Kpi {
   sub: string;
   icon: "contracts" | "accomplishments" | "rate" | "delayed";
   alert?: boolean;
+  href: string;
 }
 
 const icons = { contracts: FileStack, accomplishments: Trophy, rate: CircleCheckBig, delayed: TriangleAlert };
@@ -18,7 +20,13 @@ export function KpiCards({ items }: { items: Kpi[] }) {
       {items.map((k) => {
         const Icon = icons[k.icon];
         return (
-          <Card key={k.label}>
+          <Link
+            key={k.label}
+            href={k.href}
+            aria-label={`${k.label}: ${k.value}. View in tracker`}
+            className="group block rounded-lg transition-shadow hover:shadow-md"
+          >
+          <Card className="transition-colors group-hover:border-primary/50">
             <CardContent className="flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-sm text-muted-foreground">{k.label}</p>
@@ -28,6 +36,7 @@ export function KpiCards({ items }: { items: Kpi[] }) {
               <Icon className={cn("h-5 w-5 shrink-0 text-muted-foreground", k.alert && "text-destructive")} />
             </CardContent>
           </Card>
+          </Link>
         );
       })}
     </div>

@@ -13,6 +13,7 @@ export function Toolbar({
   onExport,
   onCreate,
   createLabel,
+  actions,
 }: {
   search: string;
   onSearch: (v: string) => void;
@@ -23,16 +24,18 @@ export function Toolbar({
   onExport: () => void;
   onCreate: () => void;
   createLabel: string;
+  actions?: React.ReactNode;
 }) {
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center gap-2">
-        <div className="relative min-w-[14rem] flex-1 sm:max-w-xs">
+        <div className="relative min-w-[14rem] flex-1 sm:max-w-sm">
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
           <Input value={search} onChange={(e) => onSearch(e.target.value)} placeholder={placeholder} className="pl-9" aria-label={placeholder} />
         </div>
         {filters}
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap gap-2">
+          {actions}
           <Button variant="outline" onClick={onExport}>
             <Download className="h-4 w-4" /> Export CSV
           </Button>

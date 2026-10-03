@@ -7,6 +7,8 @@ import { CONTRACT_FIELDS, CONTRACT_SECTIONS, type FieldDef } from "@/lib/contrac
 import { formatDate } from "@/lib/format";
 import type { Contract } from "@/lib/types";
 import { deleteContract, saveContract } from "@/app/(admin)/tracker/actions";
+import { AttachmentField } from "./attachment-field";
+import { CoordinatesField } from "./coordinates-field";
 import { DeleteButton } from "./delete-button";
 
 function toForm(c: Contract | null): Record<string, string> {
@@ -15,8 +17,9 @@ function toForm(c: Contract | null): Record<string, string> {
     const raw = c ? (c as unknown as Record<string, unknown>)[f.key] : undefined;
     v[f.key] = raw == null ? "" : String(raw);
   }
+  for (const k of ["as_built_request_form_path", "as_built_plan_path"] as const) v[k] = c?.[k] ?? "";
   if (!c) {
-    v.status = "not_started";
+    v.status = "nys";
     v.progress_percentage = "0";
   }
   return v;
@@ -26,8 +29,13 @@ function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (
   const id = `c-${f.key}`;
   return (
     <div className={f.wide ? "sm:col-span-2" : undefined}>
-      <Label htmlFor={id}>{f.label}{f.required && " *"}</Label>
-      {f.type === "select" ? (
+      <Label htmlFor={id}>
+        {f.label}{f.required && " *"}
+        {f.type === "date" && value && <span className="ml-2 font-normal text-foreground">{formatDate(value)}</span>}
+      </Label>
+      {f.type === "coordinates" ? (
+        <CoordinatesField id={id} value={value} onChange={onChange} />
+      ) : f.type === "select" ? (
         <Select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
           {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select>
@@ -36,11 +44,7 @@ function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (
       ) : (
         <Input
           id={id}
-          type={f.type === "decimal" ? "text" : f.type ?? "text"}
-          inputMode={f.type === "decimal" ? "decimal" : undefined}
-          pattern={f.type === "decimal" ? "-?[0-9]+(\\.[0-9]+)?" : undefined}
-          title={f.type === "decimal" ? "Enter a decimal number, e.g. 14.599512" : undefined}
-          placeholder={f.placeholder}
+          type={f.type ?? "text"}
           step={f.type === "number" ? "any" : undefined}
           min={f.min}
           max={f.max}
@@ -49,6 +53,7 @@ function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (
           onChange={(e) => onChange(e.target.value)}
         />
       )}
+      {f.hint && <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>}
     </div>
   );
 }
@@ -58,14 +63,28 @@ export function ContractDialog({ contract, onClose }: { contract: Contract | nul
   const [error, setError] = useState<string>();
   const [pending, start] = useTransition();
 
-  const set = (k: string) => (val: string) => setV((s) => ({ ...s, [k]: val }));
+  const [busy, setBusy] = useState(false);
+  const [folder] = useState(() => `contracts/${contract?.id ?? crypto.randomUUID()}`);
+  // Start date follows the NTP until the user sets their own value
+  const [startOwn, setStartOwn] = useState(() => !!contract?.start_date && contract.start_date !== contract.ntp);
 
-  // Mirrors the generated columns: expiry = NTP + duration - 1
+  const set = (k: string) => (val: string) => {
+    if (k === "start_date") {
+      setStartOwn(val !== "" && val !== v.ntp);
+      setV((s) => ({ ...s, start_date: val === "" ? s.ntp : val }));
+    } else if (k === "ntp") {
+      setV((s) => ({ ...s, ntp: val, ...(startOwn ? {} : { start_date: val }) }));
+    } else {
+      setV((s) => ({ ...s, [k]: val }));
+    }
+  };
+
+  // Mirrors the generated column: expiry = start + CD - 1 (consecutive calendar days)
+  const startDate = v.start_date || v.ntp;
   const expiry = (() => {
-    if (!v.ntp || !v.contract_duration) return null;
-    const [y, m, d] = v.ntp.split("-").map(Number);
-    const dt = new Date(Date.UTC(y, m - 1, d + Number(v.contract_duration) - 1));
-    return dt.toISOString().slice(0, 10);
+    if (!startDate || v.contract_duration === "" || Number(v.contract_duration) < 1) return null;
+    const [y, m, d] = startDate.split("-").map(Number);
+    return new Date(Date.UTC(y, m - 1, d + Number(v.contract_duration) - 1)).toISOString().slice(0, 10);
   })();
 
   const run = (fn: () => Promise<{ error?: string }>) =>
@@ -77,7 +96,7 @@ export function ContractDialog({ contract, onClose }: { contract: Contract | nul
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent title={contract ? "Edit contract" : "New contract"} description="Start date follows the NTP. Expiry is NTP plus contract duration, minus one day.">
+      <DialogContent title={contract ? "Edit contract" : "New contract"} description="Pre-construction runs Bid, NTP, NOA, CD, CAD. Expiry is Start date plus CD, minus one day.">
         <form
           className="mt-5 space-y-6"
           onSubmit={(e) => {
@@ -92,19 +111,27 @@ export function ContractDialog({ contract, onClose }: { contract: Contract | nul
               <div className="grid gap-3 sm:grid-cols-2">
                 {s.fields.map((f) => <Field key={f.key} f={f} value={v[f.key]} onChange={set(f.key)} />)}
               </div>
-              {s.title === "Pre-construction" && (
+              {s.title === "Construction" && (
                 <p className="mt-2 text-xs text-muted-foreground">
-                  Start date: {formatDate(v.ntp || null)} · Expiry date: {formatDate(expiry)}
+                  Start date: {formatDate(startDate || null)} · Revised/expiry date: {formatDate(expiry)} (Start + CD − 1)
                 </p>
               )}
             </fieldset>
           ))}
+          <fieldset>
+            <legend className="mb-2 text-sm font-semibold">Attachments</legend>
+            <p className="mb-2 text-xs text-muted-foreground">Both are required before the status can be set to Completed.</p>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <AttachmentField id="c-as-built-request" label="As-Built Request Form" folder={folder} value={v.as_built_request_form_path} onChange={set("as_built_request_form_path")} onBusy={setBusy} />
+              <AttachmentField id="c-as-built-plan" label="As-Built Plan" folder={folder} value={v.as_built_plan_path} onChange={set("as_built_plan_path")} onBusy={setBusy} />
+            </div>
+          </fieldset>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
           <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
             <div>{contract && <DeleteButton noun="contract" pending={pending} onConfirm={() => run(() => deleteContract(contract.id))} />}</div>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
-              <Button type="submit" disabled={pending}>{pending ? "Saving…" : "Save contract"}</Button>
+              <Button type="submit" disabled={pending || busy}>{pending ? "Saving…" : "Save contract"}</Button>
             </div>
           </div>
         </form>

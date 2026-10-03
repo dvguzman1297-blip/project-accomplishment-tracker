@@ -1,8 +1,11 @@
 "use client";
 import { useMemo, useState } from "react";
+import { Columns3, Paperclip, Printer } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
-import { Select } from "@/components/ui/input";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Input, Select } from "@/components/ui/input";
 import { RoadProgress } from "@/components/ui/road-progress";
 import { CONTRACT_FIELDS } from "@/lib/contract-fields";
 import { downloadCsv, type CsvColumn } from "@/lib/csv";
@@ -14,105 +17,387 @@ import { Toolbar } from "./toolbar";
 
 const distinct = (xs: (string | null)[]) => [...new Set(xs.filter((x): x is string => !!x?.trim()))].sort();
 
-// CSV: every workbook column, plus the generated start/expiry dates after contract duration
+type Group = "Contract" | "Locations" | "Contractor and cost" | "Authorities" | "Pre-construction" | "Construction" | "Status and remarks" | "Attachments";
+const GROUPS: Group[] = ["Contract", "Locations", "Contractor and cost", "Authorities", "Pre-construction", "Construction", "Status and remarks", "Attachments"];
+
+interface Spec extends Column<Contract> {
+  group: Group;
+  /** Plain text used for printing */
+  text: (c: Contract) => string;
+  /** Extra text matched by the global search (defaults to `text`) */
+  search?: (c: Contract) => string;
+}
+
+const dash = (v: unknown) => (v === null || v === undefined || v === "" ? "—" : String(v));
+const nowrap = (s: string) => <span className="whitespace-nowrap">{s}</span>;
+
+function col(
+  key: string,
+  header: string,
+  group: Group,
+  text: (c: Contract) => string,
+  o: Partial<Pick<Spec, "cell" | "sort" | "search" | "className" | "align">> = {},
+): Spec {
+  return { key, header, group, text, cell: o.cell ?? ((c) => dash(text(c))), sort: o.sort, search: o.search, className: o.className, align: o.align };
+}
+
+const dateCol = (key: keyof Contract & string, header: string, group: Group) =>
+  col(key, header, group, (c) => (c[key] ? formatDate(c[key] as string) : ""), {
+    cell: (c) => nowrap(formatDate(c[key] as string | null)),
+    sort: (c) => c[key] as string | null,
+    search: (c) => (c[key] ? `${formatDate(c[key] as string)} ${c[key]}` : ""),
+  });
+
+const textCol = (key: keyof Contract & string, header: string, group: Group, className?: string) =>
+  col(key, header, group, (c) => (c[key] == null ? "" : String(c[key])), { sort: (c) => c[key] as string | number | null, className });
+
+const moneyCol = (key: "abc" | "bid_amount", header: string) =>
+  col(key, header, "Contractor and cost", (c) => (c[key] == null ? "" : formatPeso(c[key])), {
+    align: "right",
+    cell: (c) => nowrap(formatPeso(c[key])),
+    sort: (c) => c[key],
+    search: (c) => (c[key] == null ? "" : `${formatPeso(c[key])} ${c[key]}`),
+  });
+
+const attachCol = (key: "as_built_request_form_path" | "as_built_plan_path", header: string) =>
+  col(key, header, "Attachments", (c) => (c[key] ? "Attached" : "Missing"), {
+    cell: (c) =>
+      c[key] ? (
+        <Badge className="gap-1 bg-emerald-600/15 text-emerald-800 dark:text-emerald-300"><Paperclip className="h-3 w-3" />Attached</Badge>
+      ) : (
+        <Badge className="bg-muted text-muted-foreground">Missing</Badge>
+      ),
+    sort: (c) => (c[key] ? 1 : 0),
+  });
+
+const coordCol = (key: "coordinates_original" | "coordinates_new", header: string, label: string) =>
+  col(key, header, "Locations", (c) => (c[key] ?? "").replace(/\s*\n\s*/g, " | "), {
+    cell: (c) => <CoordinateLink label={label} value={c[key]} />,
+    className: "min-w-[14rem]",
+  });
+
+const SPECS: Spec[] = [
+  col("item_no", "No.", "Contract", (c) => (c.item_no == null ? "" : String(c.item_no)), { sort: (c) => c.item_no }),
+  col("contract_id", "Contract ID", "Contract", (c) => c.contract_id ?? "", { cell: (c) => nowrap(dash(c.contract_id)), sort: (c) => c.contract_id }),
+  textCol("component_id", "Component ID", "Contract"),
+  col("contract_name", "Contract", "Contract", (c) => c.contract_name, {
+    className: "min-w-[18rem] max-w-md",
+    sort: (c) => c.contract_name,
+    cell: (c) => <p className="font-medium leading-snug">{c.contract_name}</p>,
+  }),
+  textCol("municipality", "Municipality", "Contract"),
+  textCol("type", "Type", "Contract"),
+
+  coordCol("coordinates_original", "Original coordinates", "Original"),
+  coordCol("coordinates_new", "New coordinates", "New"),
+
+  textCol("contractor", "Contractor", "Contractor and cost", "min-w-[12rem]"),
+  textCol("contractor_address", "Contractor's address", "Contractor and cost", "min-w-[12rem]"),
+  moneyCol("abc", "ABC"),
+  moneyCol("bid_amount", "Bid amount"),
+
+  textCol("pi_in_pcma", "PI in PCMA", "Authorities"),
+  textCol("pe_contractor", "PE (Contractor)", "Authorities"),
+  textCol("me", "ME", "Authorities"),
+  textCol("me_focal_person", "ME (Focal person)", "Authorities"),
+  textCol("project_engineer", "Project engineer", "Authorities"),
+  textCol("project_inspector", "Project inspector", "Authorities"),
+
+  // Lifecycle order: Bid -> NTP -> NOA -> CD -> CAD
+  dateCol("bid_out", "Bid out", "Pre-construction"),
+  dateCol("ntp", "NTP", "Pre-construction"),
+  dateCol("noa", "NOA", "Pre-construction"),
+  col("contract_duration", "CD (days)", "Pre-construction", (c) => (c.contract_duration == null ? "" : String(c.contract_duration)), { sort: (c) => c.contract_duration }),
+  dateCol("contract_approval_date", "CAD", "Pre-construction"),
+
+  dateCol("start_date", "Start date", "Construction"),
+  dateCol("expiry_date", "Revised / expiry date", "Construction"),
+
+  col("status", "Status", "Status and remarks", (c) => STATUS_META[c.status].label, {
+    sort: (c) => c.status,
+    search: (c) => `${STATUS_META[c.status].label} ${STATUS_META[c.status].full}`,
+    cell: (c) => (
+      <Badge className={STATUS_META[c.status].cls} title={STATUS_META[c.status].full}>{STATUS_META[c.status].label}</Badge>
+    ),
+  }),
+  col("progress", "Progress", "Status and remarks", (c) => `${c.progress_percentage}%`, {
+    sort: (c) => c.progress_percentage,
+    cell: (c) => <RoadProgress value={c.progress_percentage} />,
+  }),
+  dateCol("actual_completion_date", "Actual completion", "Status and remarks"),
+  textCol("remarks", "Remarks", "Status and remarks", "min-w-[14rem]"),
+
+  attachCol("as_built_request_form_path", "As-Built Request Form"),
+  attachCol("as_built_plan_path", "As-Built Plan"),
+];
+
+const DATE_FIELDS = [
+  { key: "start_date", label: "Start date" },
+  { key: "ntp", label: "NTP" },
+  { key: "bid_out", label: "Bid out" },
+  { key: "noa", label: "NOA" },
+  { key: "contract_approval_date", label: "CAD" },
+  { key: "expiry_date", label: "Expiry date" },
+  { key: "actual_completion_date", label: "Actual completion" },
+] as const;
+type DateField = (typeof DATE_FIELDS)[number]["key"];
+
+// CSV: every workbook column (raw values), with the computed expiry date after the start date
 const csvCols: CsvColumn<Contract>[] = CONTRACT_FIELDS.flatMap((f) => {
   const col: CsvColumn<Contract> = {
     header: f.label,
-    value: (c) => (c as unknown as Record<string, string | number | null>)[f.key],
+    value: (c) => {
+      const raw = (c as unknown as Record<string, string | number | null>)[f.key];
+      return f.key === "status" ? STATUS_META[c.status].full : raw;
+    },
   };
-  return f.key === "contract_duration"
-    ? [col, { header: "Start date", value: (c: Contract) => c.start_date }, { header: "Expiry date", value: (c: Contract) => c.expiry_date }]
-    : [col];
+  return f.key === "start_date" ? [col, { header: "Revised / expiry date", value: (c: Contract) => c.expiry_date }] : [col];
 });
+csvCols.push(
+  { header: "As-Built Request Form", value: (c) => (c.as_built_request_form_path ? "Attached" : "Missing") },
+  { header: "As-Built Plan", value: (c) => (c.as_built_plan_path ? "Attached" : "Missing") },
+);
 
-export function ContractsPanel({ contracts, today }: { contracts: Contract[]; today: string }) {
-  const [q, setQ] = useState("");
+function Checkbox({ checked, onChange, children }: { checked: boolean; onChange: () => void; children: React.ReactNode }) {
+  return (
+    <label className="flex cursor-pointer items-center gap-2 py-0.5 text-sm">
+      <input type="checkbox" checked={checked} onChange={onChange} /> {children}
+    </label>
+  );
+}
+
+export function ContractsPanel({
+  contracts,
+  today,
+  initialStatus = "",
+  initialQuery = "",
+}: {
+  contracts: Contract[];
+  today: string;
+  initialStatus?: string;
+  initialQuery?: string;
+}) {
+  const [q, setQ] = useState(initialQuery);
   const [municipality, setMunicipality] = useState("");
   const [type, setType] = useState("");
-  const [status, setStatus] = useState("");
+  const [status, setStatus] = useState(initialStatus);
+  const [inspector, setInspector] = useState("");
+  const [contractor, setContractor] = useState("");
+  const [dateField, setDateField] = useState<DateField>("start_date");
+  const [from, setFrom] = useState("");
+  const [to, setTo] = useState("");
   const [editing, setEditing] = useState<Contract | "new" | null>(null);
+  const [hiddenGroups, setHiddenGroups] = useState<Set<Group>>(new Set());
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [printOpen, setPrintOpen] = useState(false);
+  const [printCols, setPrintCols] = useState<Set<string>>(new Set());
 
+  const haystacks = useMemo(
+    () => new Map(contracts.map((c) => [c.id, SPECS.map((s) => (s.search ?? s.text)(c)).join(" ").toLowerCase()])),
+    [contracts],
+  );
+
+  // Search runs across ALL columns, including ones currently hidden
   const rows = useMemo(() => {
     const needle = q.trim().toLowerCase();
     return contracts.filter((c) => {
       if (municipality && c.municipality !== municipality) return false;
       if (type && c.type !== type) return false;
+      if (inspector && c.project_inspector !== inspector) return false;
+      if (contractor && c.contractor !== contractor) return false;
       if (status === "overdue" ? !isOverdue(c, today) : status && c.status !== status) return false;
-      if (!needle) return true;
-      return [c.contract_id, c.component_id, c.contract_name, c.municipality, c.type, c.contractor, c.project_inspector, c.project_engineer, c.me]
-        .join(" ")
-        .toLowerCase()
-        .includes(needle);
+      if (from || to) {
+        const d = c[dateField];
+        if (!d || (from && d < from) || (to && d > to)) return false;
+      }
+      return !needle || haystacks.get(c.id)!.includes(needle);
     });
-  }, [contracts, q, municipality, type, status, today]);
+  }, [contracts, haystacks, q, municipality, type, status, inspector, contractor, dateField, from, to, today]);
 
-  const columns: Column<Contract>[] = [
-    { key: "item_no", header: "No.", cell: (c) => c.item_no ?? "—", sort: (c) => c.item_no },
-    { key: "contract_id", header: "Contract ID", cell: (c) => <span className="whitespace-nowrap">{c.contract_id ?? "—"}</span>, sort: (c) => c.contract_id },
-    {
-      key: "contract_name",
-      header: "Contract",
-      className: "min-w-[18rem] max-w-md",
-      sort: (c) => c.contract_name,
-      cell: (c) => (
-        <div>
-          <p className="font-medium leading-snug">{c.contract_name}</p>
-          {c.component_id && <p className="text-xs text-muted-foreground">{c.component_id}</p>}
-        </div>
-      ),
-    },
-    { key: "municipality", header: "Municipality", cell: (c) => c.municipality ?? "—", sort: (c) => c.municipality },
-    { key: "type", header: "Type", cell: (c) => c.type ?? "—", sort: (c) => c.type },
-    { key: "old_location", header: "Old Location", cell: (c) => <CoordinateLink label="Old" lat={c.old_latitude} lng={c.old_longitude} /> },
-    { key: "new_location", header: "New Location", cell: (c) => <CoordinateLink label="New" lat={c.new_latitude} lng={c.new_longitude} /> },
-    { key: "contractor", header: "Contractor", cell: (c) => <span className="line-clamp-2 max-w-[14rem]">{c.contractor ?? "—"}</span>, sort: (c) => c.contractor },
-    { key: "bid_amount", header: "Bid amount", align: "right", cell: (c) => <span className="whitespace-nowrap">{formatPeso(c.bid_amount)}</span>, sort: (c) => c.bid_amount },
-    { key: "ntp", header: "NTP", cell: (c) => <span className="whitespace-nowrap">{formatDate(c.ntp)}</span>, sort: (c) => c.ntp },
-    { key: "expiry_date", header: "Expiry", cell: (c) => <span className="whitespace-nowrap">{formatDate(c.expiry_date)}</span>, sort: (c) => c.expiry_date },
-    {
-      key: "status",
-      header: "Status",
-      sort: (c) => c.status,
-      cell: (c) => (
-        <div className="flex flex-col items-start gap-1">
-          <Badge className={STATUS_META[c.status].cls}>{STATUS_META[c.status].label}</Badge>
-          {isOverdue(c, today) && <Badge className="bg-red-600/15 text-red-800 dark:text-red-300">Past expiry</Badge>}
-        </div>
-      ),
-    },
-    { key: "progress", header: "Progress", cell: (c) => <RoadProgress value={c.progress_percentage} />, sort: (c) => c.progress_percentage },
-  ];
+  const visible = SPECS.filter((s) => !hiddenGroups.has(s.group));
+  const toggleGroup = (g: Group) =>
+    setHiddenGroups((s) => {
+      const n = new Set(s);
+      n.has(g) ? n.delete(g) : n.add(g);
+      return n;
+    });
+
+  // Print scope: only rows in the current (date-bounded) view; ticked rows narrow it further
+  const rowIds = new Set(rows.map((r) => r.id));
+  const ticked = [...selected].filter((id) => rowIds.has(id));
+  const printRows = ticked.length ? rows.filter((r) => selected.has(r.id)) : rows;
+  const printSpecs = SPECS.filter((s) => printCols.has(s.key));
+
+  const openPrint = () => {
+    setPrintCols(new Set(visible.map((s) => s.key)));
+    setPrintOpen(true);
+  };
+  const doPrint = () => {
+    setPrintOpen(false);
+    setTimeout(() => window.print(), 150);
+  };
+
+  const rangeLabel =
+    from || to
+      ? `${DATE_FIELDS.find((d) => d.key === dateField)!.label}: ${from ? formatDate(from) : "any"} to ${to ? formatDate(to) : "any"}`
+      : "No date range";
+
+  const columns: Column<Contract>[] = visible;
 
   return (
     <div className="space-y-3">
-      <Toolbar
-        search={q}
-        onSearch={setQ}
-        placeholder="Search contracts"
-        shown={rows.length}
-        total={contracts.length}
-        createLabel="New contract"
-        onCreate={() => setEditing("new")}
-        onExport={() => downloadCsv("contracts.csv", csvCols, rows)}
-        filters={
-          <>
-            <Select value={municipality} onChange={(e) => setMunicipality(e.target.value)} className="w-auto" aria-label="Filter by municipality">
-              <option value="">All municipalities</option>
-              {distinct(contracts.map((c) => c.municipality)).map((m) => <option key={m}>{m}</option>)}
-            </Select>
-            <Select value={type} onChange={(e) => setType(e.target.value)} className="w-auto" aria-label="Filter by type">
-              <option value="">All types</option>
-              {distinct(contracts.map((c) => c.type)).map((t) => <option key={t}>{t}</option>)}
-            </Select>
-            <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto" aria-label="Filter by status">
-              <option value="">All statuses</option>
-              {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              <option value="overdue">Past expiry</option>
-            </Select>
-          </>
-        }
-      />
-      <DataTable rows={rows} columns={columns} onRowClick={setEditing} emptyText="No contracts match these filters." />
+      <div className="space-y-3 print:hidden">
+        <Toolbar
+          search={q}
+          onSearch={setQ}
+          placeholder="Search all columns"
+          shown={rows.length}
+          total={contracts.length}
+          createLabel="New contract"
+          onCreate={() => setEditing("new")}
+          onExport={() => downloadCsv("contracts.csv", csvCols, rows)}
+          actions={
+            <>
+              <details className="relative">
+                <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-card px-4 text-sm font-medium hover:bg-secondary">
+                  <Columns3 className="h-4 w-4" /> Columns
+                </summary>
+                <div className="absolute right-0 z-30 mt-1 w-56 rounded-md border bg-card p-3 shadow-lg">
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Show column groups</p>
+                  {GROUPS.map((g) => (
+                    <Checkbox key={g} checked={!hiddenGroups.has(g)} onChange={() => toggleGroup(g)}>{g}</Checkbox>
+                  ))}
+                </div>
+              </details>
+              <Button variant="outline" onClick={openPrint}>
+                <Printer className="h-4 w-4" /> Print{ticked.length ? ` (${ticked.length})` : ""}
+              </Button>
+            </>
+          }
+          filters={
+            <>
+              <Select value={municipality} onChange={(e) => setMunicipality(e.target.value)} className="w-auto" aria-label="Filter by municipality">
+                <option value="">All municipalities</option>
+                {distinct(contracts.map((c) => c.municipality)).map((m) => <option key={m}>{m}</option>)}
+              </Select>
+              <Select value={type} onChange={(e) => setType(e.target.value)} className="w-auto" aria-label="Filter by type">
+                <option value="">All types</option>
+                {distinct(contracts.map((c) => c.type)).map((t) => <option key={t}>{t}</option>)}
+              </Select>
+              <Select value={inspector} onChange={(e) => setInspector(e.target.value)} className="w-auto" aria-label="Filter by inspector">
+                <option value="">All inspectors</option>
+                {distinct(contracts.map((c) => c.project_inspector)).map((m) => <option key={m}>{m}</option>)}
+              </Select>
+              <Select value={contractor} onChange={(e) => setContractor(e.target.value)} className="w-auto max-w-[14rem]" aria-label="Filter by contractor">
+                <option value="">All contractors</option>
+                {distinct(contracts.map((c) => c.contractor)).map((m) => <option key={m}>{m}</option>)}
+              </Select>
+              <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-auto" aria-label="Filter by status">
+                <option value="">All statuses</option>
+                {STATUS_OPTIONS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                <option value="overdue">Past expiry</option>
+              </Select>
+            </>
+          }
+        />
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-xs text-muted-foreground">Date range</span>
+          <Select value={dateField} onChange={(e) => setDateField(e.target.value as DateField)} className="w-auto" aria-label="Date field">
+            {DATE_FIELDS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
+          </Select>
+          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" aria-label="From date" />
+          <span className="text-xs text-muted-foreground">to</span>
+          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-auto" aria-label="To date" />
+          {(from || to) && (
+            <>
+              <span className="text-xs text-muted-foreground">{rangeLabel}</span>
+              <Button variant="ghost" size="sm" onClick={() => { setFrom(""); setTo(""); }}>Clear</Button>
+            </>
+          )}
+        </div>
+        <DataTable
+          rows={rows}
+          columns={columns}
+          onRowClick={setEditing}
+          emptyText="No contracts match these filters."
+          selection={{ selected, onChange: setSelected }}
+        />
+      </div>
+
+      {/* Print-only sheet: current filtered rows (and ticked rows, if any), chosen columns */}
+      <div className="hidden print:block">
+        <h1 className="text-base font-semibold">Contracts</h1>
+        <p className="mb-2 text-[10px]">
+          {rangeLabel} · {printRows.length} record{printRows.length === 1 ? "" : "s"} · Printed {formatDate(today)}
+          {q.trim() && ` · Search: "${q.trim()}"`}
+        </p>
+        <table className="w-full border-collapse text-[9px]">
+          <thead>
+            <tr>
+              {printSpecs.map((s) => <th key={s.key} className="border border-black px-1 py-0.5 text-left">{s.header}</th>)}
+            </tr>
+          </thead>
+          <tbody>
+            {printRows.map((r) => (
+              <tr key={r.id} className="break-inside-avoid">
+                {printSpecs.map((s) => <td key={s.key} className="border border-black px-1 py-0.5 align-top">{dash(s.text(r))}</td>)}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {printOpen && (
+        <Dialog open onOpenChange={(o) => !o && setPrintOpen(false)}>
+          <DialogContent
+            title="Print contracts"
+            description={`${printRows.length} record${printRows.length === 1 ? "" : "s"} in the current view (${rangeLabel})${ticked.length ? `, limited to the ${ticked.length} ticked row${ticked.length === 1 ? "" : "s"}` : ". Tick rows in the table to print only those"}.`}
+            className="max-w-xl"
+          >
+            <div className="mt-4 space-y-4">
+              {GROUPS.map((g) => {
+                const specs = SPECS.filter((s) => s.group === g);
+                const all = specs.every((s) => printCols.has(s.key));
+                const flip = () =>
+                  setPrintCols((p) => {
+                    const n = new Set(p);
+                    specs.forEach((s) => (all ? n.delete(s.key) : n.add(s.key)));
+                    return n;
+                  });
+                return (
+                  <fieldset key={g}>
+                    <legend className="mb-1 text-sm font-semibold">
+                      <Checkbox checked={all} onChange={flip}>{g}</Checkbox>
+                    </legend>
+                    <div className="ml-6 grid grid-cols-2 gap-x-4">
+                      {specs.map((s) => (
+                        <Checkbox
+                          key={s.key}
+                          checked={printCols.has(s.key)}
+                          onChange={() => setPrintCols((p) => {
+                            const n = new Set(p);
+                            n.has(s.key) ? n.delete(s.key) : n.add(s.key);
+                            return n;
+                          })}
+                        >
+                          {s.header}
+                        </Checkbox>
+                      ))}
+                    </div>
+                  </fieldset>
+                );
+              })}
+            </div>
+            <div className="mt-5 flex justify-end gap-2 border-t pt-4">
+              <Button variant="outline" onClick={() => setPrintOpen(false)}>Cancel</Button>
+              <Button onClick={doPrint} disabled={printSpecs.length === 0 || printRows.length === 0}>
+                <Printer className="h-4 w-4" /> Print
+              </Button>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
+
       {editing && (
         <ContractDialog key={editing === "new" ? "new" : editing.id} contract={editing === "new" ? null : editing} onClose={() => setEditing(null)} />
       )}

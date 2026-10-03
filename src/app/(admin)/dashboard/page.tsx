@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import type { Accomplishment, Contract, ProjectStatus } from "@/lib/types";
-import { STATUS_META, formatPesoCompact, isOverdue, todayManila } from "@/lib/format";
+import { STATUS_META, formatPeso, isOverdue, todayManila } from "@/lib/format";
 import { KpiCards, type Kpi } from "@/components/dashboard/kpi-cards";
+import { NotificationsPanel } from "@/components/dashboard/notifications-panel";
+import { buildNotices } from "@/lib/notifications";
 import { DashboardCharts } from "@/components/dashboard/charts";
 
 export const dynamic = "force-dynamic";
@@ -32,16 +34,16 @@ export default async function DashboardPage() {
 
   const total = contracts.length;
   const completed = contracts.filter((x) => x.status === "completed").length;
-  const delayed = contracts.filter((x) => x.status === "delayed" || isOverdue(x, today)).length;
-  const pastExpiry = contracts.filter((x) => isOverdue(x, today)).length;
+  const delayed = contracts.filter((x) => isOverdue(x, today)).length;
+  
   const totalBid = contracts.reduce((s, x) => s + (x.bid_amount ?? 0), 0);
   const highImpact = accomplishments.filter((x) => x.impact === "high" || x.impact === "critical").length;
 
   const kpis: Kpi[] = [
-    { label: "Contracts", value: String(total), sub: totalBid ? `${formatPesoCompact(totalBid)} total bid amount` : "No bid amounts recorded", icon: "contracts" },
-    { label: "Accomplishments", value: String(accomplishments.length), sub: `${highImpact} high or critical impact`, icon: "accomplishments" },
-    { label: "Completion rate", value: `${total ? Math.round((completed / total) * 100) : 0}%`, sub: `${completed} of ${total} contracts completed`, icon: "rate" },
-    { label: "Delayed", value: String(delayed), sub: `${pastExpiry} past expiry date`, icon: "delayed", alert: delayed > 0 },
+    { label: "Contracts", value: String(total), sub: totalBid ? `${formatPeso(totalBid)} total bid amount` : "No bid amounts recorded", icon: "contracts", href: "/tracker" },
+    { label: "Accomplishments", value: String(accomplishments.length), sub: `${highImpact} high or critical impact`, icon: "accomplishments", href: "/tracker?tab=accomplishments" },
+    { label: "Completion rate", value: `${total ? Math.round((completed / total) * 100) : 0}%`, sub: `${completed} of ${total} contracts completed`, icon: "rate", href: "/tracker?status=completed" },
+    { label: "Delayed", value: String(delayed), sub: "Past expiry date and not completed", icon: "delayed", alert: delayed > 0, href: "/tracker?status=overdue" },
   ];
 
   // Trend: accomplishments per month + running total
@@ -61,7 +63,7 @@ export default async function DashboardPage() {
     });
 
   const status = (Object.keys(STATUS_META) as ProjectStatus[])
-    .map((s) => ({ name: STATUS_META[s].label, value: contracts.filter((x) => x.status === s).length, color: STATUS_META[s].color }))
+    .map((s) => ({ name: STATUS_META[s].full, value: contracts.filter((x) => x.status === s).length, color: STATUS_META[s].color }))
     .filter((s) => s.value > 0);
 
   const muni = new Map<string, number>();
@@ -78,6 +80,7 @@ export default async function DashboardPage() {
         <p className="text-sm text-muted-foreground">Contract progress and accomplishments to date.</p>
       </div>
       <KpiCards items={kpis} />
+      <NotificationsPanel notices={buildNotices(contracts, today)} contracts={contracts} />
       <DashboardCharts trend={trend} status={status} municipality={municipality} />
     </div>
   );

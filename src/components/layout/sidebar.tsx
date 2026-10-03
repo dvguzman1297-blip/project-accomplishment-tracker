@@ -65,7 +65,7 @@ export function Sidebar({ email }: { email: string }) {
   const [open, setOpen] = useState(false);
   return (
     <>
-      <header className="sticky top-0 z-40 flex h-14 items-center justify-between border-b bg-background/90 px-3 backdrop-blur lg:hidden">
+      <header className="sticky top-0 z-40 flex h-14 print:hidden items-center justify-between border-b bg-background/90 px-3 backdrop-blur lg:hidden">
         <Button variant="ghost" size="icon" aria-label="Open menu" onClick={() => setOpen(true)}>
           <Menu className="h-5 w-5" />
         </Button>
@@ -80,7 +80,7 @@ export function Sidebar({ email }: { email: string }) {
           </aside>
         </div>
       )}
-      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r bg-card lg:block">
+      <aside className="sticky top-0 hidden h-screen w-60 shrink-0 border-r bg-card lg:block print:hidden">
         <Panel email={email} variant="desktop" />
       </aside>
     </>

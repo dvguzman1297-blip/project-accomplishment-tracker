@@ -6,8 +6,22 @@ import { cn } from "@/lib/utils";
 import { AccomplishmentsPanel } from "./accomplishments-panel";
 import { ContractsPanel } from "./contracts-panel";
 
-export function TrackerView({ contracts, accomplishments, today }: { contracts: Contract[]; accomplishments: Accomplishment[]; today: string }) {
-  const [tab, setTab] = useState<"contracts" | "accomplishments">("contracts");
+export function TrackerView({
+  contracts,
+  accomplishments,
+  today,
+  initialTab = "contracts",
+  initialStatus,
+  initialQuery,
+}: {
+  contracts: Contract[];
+  accomplishments: Accomplishment[];
+  today: string;
+  initialTab?: "contracts" | "accomplishments";
+  initialStatus?: string;
+  initialQuery?: string;
+}) {
+  const [tab, setTab] = useState<"contracts" | "accomplishments">(initialTab);
   const tabs = [
     { id: "contracts", label: "Contracts", count: contracts.length },
     { id: "accomplishments", label: "Accomplishments", count: accomplishments.length },
@@ -15,7 +29,7 @@ export function TrackerView({ contracts, accomplishments, today }: { contracts: 
 
   return (
     <div className="space-y-4">
-      <div role="tablist" className="flex gap-6 border-b">
+      <div role="tablist" className="flex gap-6 border-b print:hidden">
         {tabs.map((t) => (
           <button
             key={t.id}
@@ -30,7 +44,7 @@ export function TrackerView({ contracts, accomplishments, today }: { contracts: 
         ))}
       </div>
       {tab === "contracts" ? (
-        <ContractsPanel contracts={contracts} today={today} />
+        <ContractsPanel contracts={contracts} today={today} initialStatus={initialStatus} initialQuery={initialQuery} />
       ) : (
         <AccomplishmentsPanel accomplishments={accomplishments} contracts={contracts} />
       )}

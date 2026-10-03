@@ -26,7 +26,7 @@ export async function updateSession(request: NextRequest) {
 
   const { pathname } = request.nextUrl;
   const isLogin = pathname.startsWith("/login") || pathname.startsWith("/register");
-  const isPublic = isLogin || pathname.startsWith("/auth/confirm");
+  const isPublic = isLogin || pathname.startsWith("/auth/confirm") || pathname.startsWith("/api/cron"); // cron routes check their own secret
 
   if (!user && !isPublic) {
     const url = request.nextUrl.clone();

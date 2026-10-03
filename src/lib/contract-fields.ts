@@ -3,13 +3,13 @@ import { STATUS_OPTIONS } from "./format";
 export interface FieldDef {
   key: string;
   label: string;
-  type?: "text" | "number" | "decimal" | "date" | "textarea" | "select";
-  placeholder?: string;
+  type?: "text" | "number" | "date" | "textarea" | "select" | "coordinates";
   wide?: boolean;
   required?: boolean;
   options?: { value: string; label: string }[];
   min?: number;
   max?: number;
+  hint?: string;
 }
 
 /** Mirrors the column groups of the workbook. Drives both the edit form and CSV export. */
@@ -23,12 +23,13 @@ export const CONTRACT_SECTIONS: { title: string; fields: FieldDef[] }[] = [
       { key: "contract_name", label: "Contract name", wide: true, required: true },
       { key: "municipality", label: "Municipality" },
       { key: "type", label: "Type" },
-      { key: "coordinates_new", label: "Coordinates (new)", type: "textarea" },
-      { key: "coordinates_original", label: "Coordinates (original)", type: "textarea" },
-      { key: "old_latitude", label: "Old latitude", type: "decimal", placeholder: "14.599512" },
-      { key: "old_longitude", label: "Old longitude", type: "decimal", placeholder: "120.984222" },
-      { key: "new_latitude", label: "New latitude", type: "decimal", placeholder: "14.609115" },
-      { key: "new_longitude", label: "New longitude", type: "decimal", placeholder: "120.991043" },
+    ],
+  },
+  {
+    title: "Locations",
+    fields: [
+      { key: "coordinates_original", label: "Original coordinates", type: "coordinates", wide: true },
+      { key: "coordinates_new", label: "New coordinates", type: "coordinates", wide: true },
     ],
   },
   {
@@ -52,18 +53,20 @@ export const CONTRACT_SECTIONS: { title: string; fields: FieldDef[] }[] = [
     ],
   },
   {
+    // Lifecycle order: Bid -> NTP -> NOA -> CD -> CAD
     title: "Pre-construction",
     fields: [
-      { key: "bid_out", label: "Bid out", type: "date" },
-      { key: "noa", label: "NOA", type: "date" },
-      { key: "ntp", label: "NTP", type: "date" },
-      { key: "contract_approval_date", label: "Contract approval date", type: "date" },
-      { key: "contract_duration", label: "Contract duration (days)", type: "number" },
+      { key: "bid_out", label: "1. Bid out", type: "date" },
+      { key: "ntp", label: "2. NTP (Notice to Proceed)", type: "date" },
+      { key: "noa", label: "3. NOA (Notice of Award)", type: "date" },
+      { key: "contract_duration", label: "4. CD (Contract duration, calendar days)", type: "number", min: 0 },
+      { key: "contract_approval_date", label: "5. CAD (Contract approval date)", type: "date" },
     ],
   },
   {
-    title: "Status",
+    title: "Construction",
     fields: [
+      { key: "start_date", label: "Start date", type: "date", hint: "Suggested from the NTP; you can change it." },
       { key: "status", label: "Status", type: "select", options: STATUS_OPTIONS },
       { key: "progress_percentage", label: "Progress (%)", type: "number", min: 0, max: 100 },
       { key: "actual_completion_date", label: "Actual completion date", type: "date" },

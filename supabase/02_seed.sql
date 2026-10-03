@@ -1,5 +1,5 @@
 -- Seed data from the "Maintenance File" sheet (9 contract rows, values as in the workbook).
--- Status/progress are not in the workbook: rows with an NTP are set to in_progress, the rest not_started.
+-- Status/progress are not in the workbook: rows with an NTP are set to ongoing, the rest NYS (not yet started).
 -- The accomplishments at the bottom are SAMPLE entries for demo charts; delete them freely.
 
 insert into tracker.contracts
@@ -11,42 +11,42 @@ values
  (1, '26SE0099', 'P01000842LZ - CW1', 'Bridge Program - Widening of Permanent Bridges - Ilog Baliwag Br.',
   'Santo Domingo', 'Bridge', null, null, 'GRACE CONSTRUCTION CORPORATION', 'Grace Compd.',
   121000000, 119572088.14, 'Juan Dela Cruz', 'John Doe', 'Padua', 'Derwin Gatchalian', 'RR', 'Mary',
-  '2026-08-26', '2026-09-28', '2026-01-01', null, 300, 'in_progress', 40),
+  '2026-08-26', '2026-09-28', '2026-01-01', null, 300, 'ongoing', 40),
  (2, '26SE0152', 'P01037921LZ - CW1', 'Construction of Road, Barangay Macapabellag',
   'Guimba', 'Road',
   E'START: 15.699075, 120.788852\nEND: 15.698886, 120.791714',
   E'START: 15.66662126, 120.85408746\nEND: 15.66725605, 120.85327273',
   'GRACE CONSTRUCTION CORPORATION', 'GRACE CONSTRUCTION CORPORATION', null, null,
   null, null, null, null, null, 'Mary',
-  '2026-08-18', '2026-09-28', null, null, 60, 'not_started', 0),
+  '2026-08-18', '2026-09-28', null, null, 60, 'nys', 0),
  (3, '26SE0153', 'P01037894LZ - CW1', 'Construction of Road, Barangay Camiing',
   'Guimba', 'Road', null, null, null, null, null, null,
   null, null, null, null, null, 'Mary',
-  '2026-08-18', null, null, null, 60, 'not_started', 0),
+  '2026-08-18', null, null, null, 60, 'nys', 0),
  (4, '26SE0171', 'P01037892LZ - CW1', 'Construction of Road, Barangay Banitan',
   'Guimba', 'Road', null, null, null, null, null, null,
   null, null, null, null, null, 'Mary',
-  '2026-09-08', null, null, null, 60, 'not_started', 0),
+  '2026-09-08', null, null, null, 60, 'nys', 0),
  (5, null, 'P01015007LZ - CW1', 'Network Development Program - Construction of By-Pass and Diversion Roads',
   'Quezon', 'Bridge', null, null, null, null, null, null,
   null, null, null, null, null, 'Mary',
-  null, null, null, null, null, 'not_started', 0),
+  null, null, null, null, null, 'nys', 0),
  (6, '26SE0223 (Cluster 10)', 'P01044824LZ - CW1', 'Construction (Completion) of Multi Purpose Building, Banitan Elementary School',
   'Guimba', 'BEFF', null, null, null, null, null, null,
   null, null, null, null, null, 'Mary',
-  null, null, null, null, null, 'not_started', 0),
+  null, null, null, null, null, 'nys', 0),
  (7, '26SE0223 (Cluster 10)', 'P01044828LZ - CW1', 'Construction (Completion) of Multi-Purpose Building, Barangay Naglabrahan',
   'Guimba', 'MPB', null, null, null, null, null, null,
   null, null, null, null, null, 'Mary',
-  null, null, null, null, null, 'not_started', 0),
+  null, null, null, null, null, 'nys', 0),
  (8, '26SE0223 (Cluster 10)', 'P01044872LZ - CW1', 'Construction (Completion) of Multi-Purpose Building, Barangay Balingog West',
   'Guimba', 'MPB', null, null, null, null, null, null,
   null, null, null, null, null, 'Mary',
-  null, null, null, null, null, 'not_started', 0),
+  null, null, null, null, null, 'nys', 0),
  (9, null, 'P01044884LZ - CW1', 'Construction (Completion) of Multi-Purpose Building, Barangay Maturanoc',
   'Guimba', 'MPB', null, null, null, null, null, null,
   null, null, null, null, null, 'Mary',
-  null, null, null, null, null, 'not_started', 0);
+  null, null, null, null, null, 'nys', 0);
 
 -- SAMPLE accomplishments (not from the workbook)
 insert into tracker.accomplishments (project_id, title, details, impact, date_completed)

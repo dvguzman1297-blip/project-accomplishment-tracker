@@ -12,16 +12,23 @@ export interface Column<T> {
   align?: "right";
 }
 
+export interface Selection {
+  selected: Set<string>;
+  onChange: (next: Set<string>) => void;
+}
+
 export function DataTable<T extends { id: string }>({
   rows,
   columns,
   onRowClick,
   emptyText,
+  selection,
 }: {
   rows: T[];
   columns: Column<T>[];
   onRowClick?: (row: T) => void;
   emptyText: string;
+  selection?: Selection;
 }) {
   const [sort, setSort] = useState<{ key: string; dir: "asc" | "desc" } | null>(null);
 
@@ -43,6 +50,20 @@ export function DataTable<T extends { id: string }>({
     });
   }, [rows, sort, columns]);
 
+  const allSelected = !!selection && sorted.length > 0 && sorted.every((r) => selection.selected.has(r.id));
+  const toggleAll = () => {
+    if (!selection) return;
+    const next = new Set(selection.selected);
+    sorted.forEach((r) => (allSelected ? next.delete(r.id) : next.add(r.id)));
+    selection.onChange(next);
+  };
+  const toggleRow = (id: string) => {
+    if (!selection) return;
+    const next = new Set(selection.selected);
+    next.has(id) ? next.delete(id) : next.add(id);
+    selection.onChange(next);
+  };
+
   const toggle = (key: string) =>
     setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
 
@@ -51,6 +72,11 @@ export function DataTable<T extends { id: string }>({
       <table className="w-full text-sm">
         <thead>
           <tr className="border-b bg-secondary/60 text-left">
+            {selection && (
+              <th className="w-8 px-3 py-2.5">
+                <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all shown rows" />
+              </th>
+            )}
             {columns.map((c) => {
               const Icon = sort?.key === c.key ? (sort.dir === "asc" ? ArrowUp : ArrowDown) : ArrowUpDown;
               return (
@@ -75,7 +101,7 @@ export function DataTable<T extends { id: string }>({
         <tbody>
           {sorted.length === 0 && (
             <tr>
-              <td colSpan={columns.length} className="px-3 py-10 text-center text-muted-foreground">
+              <td colSpan={columns.length + (selection ? 1 : 0)} className="px-3 py-10 text-center text-muted-foreground">
                 {emptyText}
               </td>
             </tr>
@@ -85,9 +111,14 @@ export function DataTable<T extends { id: string }>({
               key={row.id}
               tabIndex={onRowClick ? 0 : undefined}
               onClick={() => onRowClick?.(row)}
-              onKeyDown={(e) => e.key === "Enter" && onRowClick?.(row)}
+              onKeyDown={(e) => e.target === e.currentTarget && e.key === "Enter" && onRowClick?.(row)}
               className={cn("border-b last:border-0", onRowClick && "cursor-pointer hover:bg-secondary/50")}
             >
+              {selection && (
+                <td className="px-3 py-2.5 align-top" onClick={(e) => e.stopPropagation()}>
+                  <input type="checkbox" checked={selection.selected.has(row.id)} onChange={() => toggleRow(row.id)} aria-label="Select row for printing" />
+                </td>
+              )}
               {columns.map((c) => (
                 <td key={c.key} className={cn("px-3 py-2.5 align-top", c.align === "right" && "text-right", c.className)}>
                   {c.cell(row)}
