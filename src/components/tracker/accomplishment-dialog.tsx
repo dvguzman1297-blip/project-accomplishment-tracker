@@ -2,6 +2,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { DateInput } from "@/components/ui/date-input";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { IMPACT_OPTIONS, contractLabel } from "@/lib/format";
 import type { Accomplishment, Contract } from "@/lib/types";
@@ -73,7 +74,7 @@ export function AccomplishmentDialog({
             </div>
             <div>
               <Label htmlFor="a-date">Date completed</Label>
-              <Input id="a-date" type="date" value={v.date_completed} onChange={(e) => set("date_completed")(e.target.value)} />
+              <DateInput id="a-date" value={v.date_completed} onChange={set("date_completed")} />
             </div>
           </div>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}

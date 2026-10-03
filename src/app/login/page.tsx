@@ -1,7 +1,9 @@
 "use client";
+import { useState } from "react";
 import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
-import { HardHat } from "lucide-react";
+import { Eye, EyeOff } from "lucide-react";
+import { AuthCard } from "@/components/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { signIn } from "./actions";
@@ -9,7 +11,7 @@ import { signIn } from "./actions";
 function Submit() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" className="w-full" disabled={pending}>
+    <Button type="submit" className="h-11 w-full" disabled={pending}>
       {pending ? "Signing in…" : "Sign in"}
     </Button>
   );
@@ -17,36 +19,37 @@ function Submit() {
 
 export default function LoginPage() {
   const [state, action] = useFormState(signIn, {} as { error?: string });
+  const [show, setShow] = useState(false);
   return (
-    <main className="grid min-h-screen lg:grid-cols-[1fr_28rem]">
-      <section className="hidden bg-primary p-12 text-primary-foreground lg:flex lg:flex-col lg:justify-end">
-        <HardHat className="mb-6 h-10 w-10 text-accent" />
-        <h1 className="max-w-md text-4xl font-semibold leading-tight tracking-tight">
-          Every contract, from bid-out to expiry, in one register.
-        </h1>
-        <p className="mt-4 max-w-md text-sm opacity-80">Log accomplishments, watch progress, and catch contracts running past their expiry date.</p>
-      </section>
-      <section className="flex items-center justify-center p-6">
-        <form action={action} className="w-full max-w-sm space-y-4">
-          <div>
-            <h2 className="text-2xl font-semibold tracking-tight">Admin sign in</h2>
-            <p className="mt-1 text-sm text-muted-foreground">Project Accomplishment Tracker</p>
-          </div>
-          <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" autoComplete="email" required />
-          </div>
-          <div>
+    <AuthCard title="Welcome back" subtitle="Sign in to manage your project dashboard.">
+      <form action={action} className="space-y-4">
+        <div>
+          <Label htmlFor="email">Email Address</Label>
+          <Input id="email" name="email" type="email" autoComplete="email" required className="h-11" />
+        </div>
+        <div>
+          <div className="flex items-center justify-between">
             <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" autoComplete="current-password" required />
+            <Link href="/forgot-password" className="mb-1 text-xs text-muted-foreground hover:text-foreground">Forgot password?</Link>
           </div>
-          {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
-          <Submit />
-          <p className="text-center text-sm text-muted-foreground">
-            No account? <Link href="/register" className="underline">Create one</Link>
-          </p>
-        </form>
-      </section>
-    </main>
+          <div className="relative">
+            <Input id="password" name="password" type={show ? "text" : "password"} autoComplete="current-password" required className="h-11 pr-10" />
+            <button
+              type="button"
+              onClick={() => setShow((s) => !s)}
+              aria-label={show ? "Hide password" : "Show password"}
+              className="absolute right-3 top-3 text-muted-foreground hover:text-foreground"
+            >
+              {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </div>
+        {state.error && <p role="alert" className="text-sm text-destructive">{state.error}</p>}
+        <Submit />
+        <p className="pt-2 text-center text-sm text-muted-foreground">
+          Don&apos;t have an account? <Link href="/register" className="text-primary hover:underline">Register</Link>
+        </p>
+      </form>
+    </AuthCard>
   );
 }

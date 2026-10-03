@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Notice } from "@/lib/notifications";
 import type { Contract } from "@/lib/types";
 
-/** As-Built Plan reminders: expiry within N/5 days, or progress at 95%+. */
+/** As-Built Plan reminders: expiry within 5 days, or progress at 95%+. */
 export function NotificationsPanel({ notices, contracts }: { notices: Notice[]; contracts: Contract[] }) {
   if (notices.length === 0) return null;
   const byId = new Map(contracts.map((c) => [c.id, c]));
@@ -22,7 +22,7 @@ export function NotificationsPanel({ notices, contracts }: { notices: Notice[]; 
             const c = byId.get(n.contractId);
             return (
               <li key={`${n.contractId}-${n.kind}`} className="py-2">
-                <Link href={`/tracker?q=${encodeURIComponent(c?.contract_id ?? c?.contract_name ?? "")}`} className="hover:underline">
+                <Link href={`/tracker?range=all&q=${encodeURIComponent(c?.contract_id ?? c?.contract_name ?? "")}`} className="hover:underline">
                   <p className="font-medium leading-snug">{n.title}</p>
                   <p className="text-xs text-muted-foreground">{n.detail}</p>
                 </Link>

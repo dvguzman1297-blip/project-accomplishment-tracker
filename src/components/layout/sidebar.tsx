@@ -3,7 +3,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
-import { HardHat, LayoutDashboard, LogOut, Menu, Table2 } from "lucide-react";
+import Image from "next/image";
+import { LayoutDashboard, LogOut, Menu, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "./theme-toggle";
@@ -19,10 +20,8 @@ function Panel({ email, variant, onNavigate }: { email: string; variant: string;
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 px-5 py-5">
-        <span className="grid h-8 w-8 place-items-center rounded-md bg-accent text-accent-foreground">
-          <HardHat className="h-4 w-4" />
-        </span>
-        <span className="text-sm font-semibold leading-tight tracking-tight">Accomplishment<br />Tracker</span>
+        <Image src="/dpwh-logo.png" alt="DPWH logo" width={56} height={56} />
+        <span className="text-lg font-semibold leading-tight tracking-tight">Project Accomplishment<br />Tracker</span>
       </div>
       <nav className="flex-1 space-y-1 px-3">
         {links.map(({ href, label, icon: Icon }) => {

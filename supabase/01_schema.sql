@@ -56,9 +56,9 @@ create table if not exists tracker.contracts (
   contract_approval_date date,                            -- "CAD"
 
   -- Construction data. Start defaults to NTP (trigger below) but can be overridden.
-  -- Expiry = Start + CD - 1 (consecutive calendar days, start day inclusive)
+  -- Expiry is editable; when blank it defaults to Start + CD - 1 (consecutive calendar days)
   start_date             date,
-  expiry_date            date generated always as (start_date + (contract_duration - 1)) stored,
+  expiry_date            date,
 
   -- Attachments (paths inside the private `as-builts` storage bucket)
   as_built_request_form_path text,
@@ -99,7 +99,8 @@ create trigger trg_contracts_updated_at before update on tracker.contracts
 create or replace function tracker.default_start_date()
 returns trigger language plpgsql as $$
 begin
-  new.start_date = coalesce(new.start_date, new.ntp);
+  new.start_date  = coalesce(new.start_date, new.ntp);
+  new.expiry_date = coalesce(new.expiry_date, new.start_date + (new.contract_duration - 1));
   return new;
 end;
 $$;

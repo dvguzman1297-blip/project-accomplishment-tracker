@@ -56,17 +56,18 @@ export const CONTRACT_SECTIONS: { title: string; fields: FieldDef[] }[] = [
     // Lifecycle order: Bid -> NTP -> NOA -> CD -> CAD
     title: "Pre-construction",
     fields: [
-      { key: "bid_out", label: "1. Bid out", type: "date" },
-      { key: "ntp", label: "2. NTP (Notice to Proceed)", type: "date" },
-      { key: "noa", label: "3. NOA (Notice of Award)", type: "date" },
-      { key: "contract_duration", label: "4. CD (Contract duration, calendar days)", type: "number", min: 0 },
-      { key: "contract_approval_date", label: "5. CAD (Contract approval date)", type: "date" },
+      { key: "bid_out", label: "Bid out", type: "date" },
+      { key: "ntp", label: "NTP (Notice to Proceed)", type: "date" },
+      { key: "noa", label: "NOA (Notice of Award)", type: "date" },
+      { key: "contract_duration", label: "CD (Contract duration, calendar days)", type: "number", min: 0 },
+      { key: "contract_approval_date", label: "CAD (Contract approval date)", type: "date" },
     ],
   },
   {
     title: "Construction",
     fields: [
       { key: "start_date", label: "Start date", type: "date", hint: "Suggested from the NTP; you can change it." },
+      { key: "expiry_date", label: "Expiry date", type: "date", hint: "Suggested as Start date + CD − 1; you can change it." },
       { key: "status", label: "Status", type: "select", options: STATUS_OPTIONS },
       { key: "progress_percentage", label: "Progress (%)", type: "number", min: 0, max: 100 },
       { key: "actual_completion_date", label: "Actual completion date", type: "date" },

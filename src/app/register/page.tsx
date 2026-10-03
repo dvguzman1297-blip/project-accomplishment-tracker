@@ -1,6 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useFormState, useFormStatus } from "react-dom";
+import { AuthCard } from "@/components/auth-card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { register } from "./actions";
@@ -17,12 +18,8 @@ function Submit() {
 export default function RegisterPage() {
   const [state, action] = useFormState(register, {} as { error?: string; success?: string });
   return (
-    <main className="flex min-h-screen items-center justify-center p-6">
-      <form action={action} className="w-full max-w-sm space-y-4">
-        <div>
-          <h1 className="text-2xl font-semibold tracking-tight">Create account</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Project Accomplishment Tracker</p>
-        </div>
+    <AuthCard title="Create account" subtitle="Register to access your workspace">
+      <form action={action} className="space-y-4">
         <div>
           <Label htmlFor="email">Email</Label>
           <Input id="email" name="email" type="email" autoComplete="email" required />
@@ -39,9 +36,9 @@ export default function RegisterPage() {
         {state.success && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">{state.success}</p>}
         <Submit />
         <p className="text-center text-sm text-muted-foreground">
-          Already have an account? <Link href="/login" className="underline">Sign in</Link>
+          Already have an account? <Link href="/login" className="text-primary hover:underline">Sign in</Link>
         </p>
       </form>
-    </main>
+    </AuthCard>
   );
 }

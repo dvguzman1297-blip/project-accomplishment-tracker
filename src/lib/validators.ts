@@ -51,6 +51,7 @@ export const contractSchema = z
   contract_duration: whole,
   contract_approval_date: date,
   start_date: date,
+  expiry_date: date,
   status: z.enum(["nys", "ongoing", "completed", "suspended"]),
   progress_percentage: z.coerce.number().int("Progress must be a whole number").min(0, "Progress is 0 to 100").max(100, "Progress is 0 to 100"),
   actual_completion_date: date,

@@ -25,7 +25,7 @@ export async function updateSession(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const { pathname } = request.nextUrl;
-  const isLogin = pathname.startsWith("/login") || pathname.startsWith("/register");
+  const isLogin = pathname.startsWith("/login") || pathname.startsWith("/register") || pathname.startsWith("/forgot-password");
   const isPublic = isLogin || pathname.startsWith("/auth/confirm") || pathname.startsWith("/api/cron"); // cron routes check their own secret
 
   if (!user && !isPublic) {

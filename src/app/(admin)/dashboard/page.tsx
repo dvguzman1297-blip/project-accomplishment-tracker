@@ -40,10 +40,10 @@ export default async function DashboardPage() {
   const highImpact = accomplishments.filter((x) => x.impact === "high" || x.impact === "critical").length;
 
   const kpis: Kpi[] = [
-    { label: "Contracts", value: String(total), sub: totalBid ? `${formatPeso(totalBid)} total bid amount` : "No bid amounts recorded", icon: "contracts", href: "/tracker" },
+    { label: "Contracts", value: String(total), sub: totalBid ? `${formatPeso(totalBid)} total bid amount` : "No bid amounts recorded", icon: "contracts", href: "/tracker?range=all" },
     { label: "Accomplishments", value: String(accomplishments.length), sub: `${highImpact} high or critical impact`, icon: "accomplishments", href: "/tracker?tab=accomplishments" },
-    { label: "Completion rate", value: `${total ? Math.round((completed / total) * 100) : 0}%`, sub: `${completed} of ${total} contracts completed`, icon: "rate", href: "/tracker?status=completed" },
-    { label: "Delayed", value: String(delayed), sub: "Past expiry date and not completed", icon: "delayed", alert: delayed > 0, href: "/tracker?status=overdue" },
+    { label: "Completion rate", value: `${total ? Math.round((completed / total) * 100) : 0}%`, sub: `${completed} of ${total} contracts completed`, icon: "rate", href: "/tracker?status=completed&range=all" },
+    { label: "Delayed", value: String(delayed), sub: "Past expiry date and not completed", icon: "delayed", alert: delayed > 0, href: "/tracker?status=overdue&range=all" },
   ];
 
   // Trend: accomplishments per month + running total

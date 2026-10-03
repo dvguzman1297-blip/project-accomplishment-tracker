@@ -5,7 +5,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { DataTable, type Column } from "@/components/ui/data-table";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Input, Select } from "@/components/ui/input";
+import { DateInput } from "@/components/ui/date-input";
+import { Select } from "@/components/ui/input";
 import { RoadProgress } from "@/components/ui/road-progress";
 import { CONTRACT_FIELDS } from "@/lib/contract-fields";
 import { downloadCsv, type CsvColumn } from "@/lib/csv";
@@ -103,15 +104,15 @@ const SPECS: Spec[] = [
   textCol("project_engineer", "Project engineer", "Authorities"),
   textCol("project_inspector", "Project inspector", "Authorities"),
 
-  // Lifecycle order: Bid -> NTP -> NOA -> CD -> CAD
+  // Table order: Bid out -> NOA -> CAD -> NTP -> CD
   dateCol("bid_out", "Bid out", "Pre-construction"),
-  dateCol("ntp", "NTP", "Pre-construction"),
   dateCol("noa", "NOA", "Pre-construction"),
-  col("contract_duration", "CD (days)", "Pre-construction", (c) => (c.contract_duration == null ? "" : String(c.contract_duration)), { sort: (c) => c.contract_duration }),
   dateCol("contract_approval_date", "CAD", "Pre-construction"),
+  dateCol("ntp", "NTP", "Pre-construction"),
+  col("contract_duration", "CD (days)", "Pre-construction", (c) => (c.contract_duration == null ? "" : String(c.contract_duration)), { sort: (c) => c.contract_duration }),
 
   dateCol("start_date", "Start date", "Construction"),
-  dateCol("expiry_date", "Revised / expiry date", "Construction"),
+  dateCol("expiry_date", "Expiry date", "Construction"),
 
   col("status", "Status", "Status and remarks", (c) => STATUS_META[c.status].label, {
     sort: (c) => c.status,
@@ -131,18 +132,7 @@ const SPECS: Spec[] = [
   attachCol("as_built_plan_path", "As-Built Plan"),
 ];
 
-const DATE_FIELDS = [
-  { key: "start_date", label: "Start date" },
-  { key: "ntp", label: "NTP" },
-  { key: "bid_out", label: "Bid out" },
-  { key: "noa", label: "NOA" },
-  { key: "contract_approval_date", label: "CAD" },
-  { key: "expiry_date", label: "Expiry date" },
-  { key: "actual_completion_date", label: "Actual completion" },
-] as const;
-type DateField = (typeof DATE_FIELDS)[number]["key"];
-
-// CSV: every workbook column (raw values), with the computed expiry date after the start date
+// CSV: every workbook column (raw values)
 const csvCols: CsvColumn<Contract>[] = CONTRACT_FIELDS.flatMap((f) => {
   const col: CsvColumn<Contract> = {
     header: f.label,
@@ -151,7 +141,7 @@ const csvCols: CsvColumn<Contract>[] = CONTRACT_FIELDS.flatMap((f) => {
       return f.key === "status" ? STATUS_META[c.status].full : raw;
     },
   };
-  return f.key === "start_date" ? [col, { header: "Revised / expiry date", value: (c: Contract) => c.expiry_date }] : [col];
+  return [col];
 });
 csvCols.push(
   { header: "As-Built Request Form", value: (c) => (c.as_built_request_form_path ? "Attached" : "Missing") },
@@ -171,11 +161,13 @@ export function ContractsPanel({
   today,
   initialStatus = "",
   initialQuery = "",
+  initialRange,
 }: {
   contracts: Contract[];
   today: string;
   initialStatus?: string;
   initialQuery?: string;
+  initialRange?: string;
 }) {
   const [q, setQ] = useState(initialQuery);
   const [municipality, setMunicipality] = useState("");
@@ -183,11 +175,13 @@ export function ContractsPanel({
   const [status, setStatus] = useState(initialStatus);
   const [inspector, setInspector] = useState("");
   const [contractor, setContractor] = useState("");
-  const [dateField, setDateField] = useState<DateField>("start_date");
-  const [from, setFrom] = useState("");
-  const [to, setTo] = useState("");
+  // Start date range defaults to the current calendar year (Jan 01 to Dec 31)
+  const year = today.slice(0, 4);
+  const [from, setFrom] = useState(initialRange === "all" ? "" : `${year}-01-01`);
+  const [to, setTo] = useState(initialRange === "all" ? "" : `${year}-12-31`);
+  const [includeUndated, setIncludeUndated] = useState(true);
   const [editing, setEditing] = useState<Contract | "new" | null>(null);
-  const [hiddenGroups, setHiddenGroups] = useState<Set<Group>>(new Set());
+  const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);
   const [printCols, setPrintCols] = useState<Set<string>>(new Set());
@@ -207,18 +201,18 @@ export function ContractsPanel({
       if (contractor && c.contractor !== contractor) return false;
       if (status === "overdue" ? !isOverdue(c, today) : status && c.status !== status) return false;
       if (from || to) {
-        const d = c[dateField];
-        if (!d || (from && d < from) || (to && d > to)) return false;
+        const d = c.start_date;
+        if (!d ? !includeUndated : (from && d < from) || (to && d > to)) return false;
       }
       return !needle || haystacks.get(c.id)!.includes(needle);
     });
-  }, [contracts, haystacks, q, municipality, type, status, inspector, contractor, dateField, from, to, today]);
+  }, [contracts, haystacks, q, municipality, type, status, inspector, contractor, from, to, includeUndated, today]);
 
-  const visible = SPECS.filter((s) => !hiddenGroups.has(s.group));
-  const toggleGroup = (g: Group) =>
-    setHiddenGroups((s) => {
+  const visible = SPECS.filter((s) => !hiddenCols.has(s.key));
+  const toggleCol = (key: string) =>
+    setHiddenCols((s) => {
       const n = new Set(s);
-      n.has(g) ? n.delete(g) : n.add(g);
+      n.has(key) ? n.delete(key) : n.add(key);
       return n;
     });
 
@@ -239,7 +233,7 @@ export function ContractsPanel({
 
   const rangeLabel =
     from || to
-      ? `${DATE_FIELDS.find((d) => d.key === dateField)!.label}: ${from ? formatDate(from) : "any"} to ${to ? formatDate(to) : "any"}`
+      ? `Start date: ${from ? formatDate(from) : "any"} to ${to ? formatDate(to) : "any"}`
       : "No date range";
 
   const columns: Column<Contract>[] = visible;
@@ -262,10 +256,18 @@ export function ContractsPanel({
                 <summary className="inline-flex h-9 cursor-pointer list-none items-center gap-2 rounded-md border border-input bg-card px-4 text-sm font-medium hover:bg-secondary">
                   <Columns3 className="h-4 w-4" /> Columns
                 </summary>
-                <div className="absolute right-0 z-30 mt-1 w-56 rounded-md border bg-card p-3 shadow-lg">
-                  <p className="mb-1 text-xs font-semibold text-muted-foreground">Show column groups</p>
+                <div className="absolute right-0 z-30 mt-1 max-h-96 w-64 overflow-y-auto rounded-md border bg-card p-3 shadow-lg">
+                  <div className="mb-1 flex items-center justify-between">
+                    <p className="text-xs font-semibold text-muted-foreground">Show columns</p>
+                    <button type="button" className="text-xs text-primary hover:underline" onClick={() => setHiddenCols(new Set())}>Show all</button>
+                  </div>
                   {GROUPS.map((g) => (
-                    <Checkbox key={g} checked={!hiddenGroups.has(g)} onChange={() => toggleGroup(g)}>{g}</Checkbox>
+                    <div key={g} className="mt-2">
+                      <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">{g}</p>
+                      {SPECS.filter((s) => s.group === g).map((s) => (
+                        <Checkbox key={s.key} checked={!hiddenCols.has(s.key)} onChange={() => toggleCol(s.key)}>{s.header}</Checkbox>
+                      ))}
+                    </div>
                   ))}
                 </div>
               </details>
@@ -301,18 +303,17 @@ export function ContractsPanel({
           }
         />
         <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-xs text-muted-foreground">Date range</span>
-          <Select value={dateField} onChange={(e) => setDateField(e.target.value as DateField)} className="w-auto" aria-label="Date field">
-            {DATE_FIELDS.map((d) => <option key={d.key} value={d.key}>{d.label}</option>)}
-          </Select>
-          <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-auto" aria-label="From date" />
+          <span className="text-xs text-muted-foreground">Start date from</span>
+          <DateInput value={from} onChange={setFrom} className="w-40" aria-label="From date" />
           <span className="text-xs text-muted-foreground">to</span>
-          <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-auto" aria-label="To date" />
-          {(from || to) && (
-            <>
-              <span className="text-xs text-muted-foreground">{rangeLabel}</span>
-              <Button variant="ghost" size="sm" onClick={() => { setFrom(""); setTo(""); }}>Clear</Button>
-            </>
+          <DateInput value={to} onChange={setTo} className="w-40" aria-label="To date" />
+          <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <input type="checkbox" checked={includeUndated} onChange={(e) => setIncludeUndated(e.target.checked)} /> Include contracts with no start date
+          </label>
+          {from || to ? (
+            <Button variant="ghost" size="sm" onClick={() => { setFrom(""); setTo(""); }}>All dates</Button>
+          ) : (
+            <Button variant="ghost" size="sm" onClick={() => { setFrom(`${year}-01-01`); setTo(`${year}-12-31`); }}>This year</Button>
           )}
         </div>
         <DataTable

@@ -5,7 +5,7 @@ import { TrackerView } from "@/components/tracker/tracker-view";
 
 export const dynamic = "force-dynamic";
 
-export default async function TrackerPage({ searchParams }: { searchParams: { tab?: string; status?: string; q?: string } }) {
+export default async function TrackerPage({ searchParams }: { searchParams: { tab?: string; status?: string; q?: string; range?: string } }) {
   const supabase = createClient();
   const [c, a] = await Promise.all([
     supabase.from("contracts").select("*").order("item_no", { ascending: true, nullsFirst: false }),
@@ -31,6 +31,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: { ta
         initialTab={searchParams.tab === "accomplishments" ? "accomplishments" : "contracts"}
         initialStatus={searchParams.status}
         initialQuery={searchParams.q}
+        initialRange={searchParams.range}
       />
     </div>
   );

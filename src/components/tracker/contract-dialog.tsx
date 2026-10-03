@@ -2,14 +2,22 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { DateInput } from "@/components/ui/date-input";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { CONTRACT_FIELDS, CONTRACT_SECTIONS, type FieldDef } from "@/lib/contract-fields";
-import { formatDate } from "@/lib/format";
+import { suggestExpiry } from "@/lib/format";
 import type { Contract } from "@/lib/types";
 import { deleteContract, saveContract } from "@/app/(admin)/tracker/actions";
 import { AttachmentField } from "./attachment-field";
 import { CoordinatesField } from "./coordinates-field";
 import { DeleteButton } from "./delete-button";
+
+/** Suggested expiry = Start + CD - 1; with no start/NTP yet, the system date stands in as the start. */
+function suggest(start: string, cd: string | number | null) {
+  const today = new Date();
+  const local = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+  return suggestExpiry(start || local, Number(cd));
+}
 
 function toForm(c: Contract | null): Record<string, string> {
   const v: Record<string, string> = {};
@@ -31,14 +39,15 @@ function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (
     <div className={f.wide ? "sm:col-span-2" : undefined}>
       <Label htmlFor={id}>
         {f.label}{f.required && " *"}
-        {f.type === "date" && value && <span className="ml-2 font-normal text-foreground">{formatDate(value)}</span>}
-      </Label>
+              </Label>
       {f.type === "coordinates" ? (
         <CoordinatesField id={id} value={value} onChange={onChange} />
       ) : f.type === "select" ? (
         <Select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
           {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select>
+      ) : f.type === "date" ? (
+        <DateInput id={id} value={value} onChange={onChange} />
       ) : f.type === "textarea" ? (
         <Textarea id={id} rows={2} value={value} onChange={(e) => onChange(e.target.value)} />
       ) : (
@@ -67,25 +76,28 @@ export function ContractDialog({ contract, onClose }: { contract: Contract | nul
   const [folder] = useState(() => `contracts/${contract?.id ?? crypto.randomUUID()}`);
   // Start date follows the NTP until the user sets their own value
   const [startOwn, setStartOwn] = useState(() => !!contract?.start_date && contract.start_date !== contract.ntp);
+  // Expiry follows Start + CD - 1 until the user sets their own value
+  const [expiryOwn, setExpiryOwn] = useState(
+    () => !!contract?.expiry_date && contract.expiry_date !== suggest(contract.start_date ?? contract.ntp ?? "", contract.contract_duration),
+  );
 
   const set = (k: string) => (val: string) => {
-    if (k === "start_date") {
-      setStartOwn(val !== "" && val !== v.ntp);
-      setV((s) => ({ ...s, start_date: val === "" ? s.ntp : val }));
-    } else if (k === "ntp") {
-      setV((s) => ({ ...s, ntp: val, ...(startOwn ? {} : { start_date: val }) }));
-    } else {
-      setV((s) => ({ ...s, [k]: val }));
-    }
+    let ownStart = startOwn;
+    let ownExpiry = expiryOwn;
+    if (k === "start_date") ownStart = val !== "" && val !== v.ntp;
+    if (k === "expiry_date") ownExpiry = val !== "" && val !== suggest(v.start_date || v.ntp, v.contract_duration);
+    setStartOwn(ownStart);
+    setV((s) => {
+      const next = { ...s, [k]: val };
+      if (k === "ntp" && !ownStart) next.start_date = val;
+      if (k === "start_date" && val === "") next.start_date = s.ntp;
+      if (k === "expiry_date" && val === "") ownExpiry = false;
+      // Suggested expiry tracks the inputs unless the user typed their own
+      if (!ownExpiry) next.expiry_date = suggest(next.start_date || next.ntp, next.contract_duration) ?? "";
+      return next;
+    });
+    setExpiryOwn(ownExpiry);
   };
-
-  // Mirrors the generated column: expiry = start + CD - 1 (consecutive calendar days)
-  const startDate = v.start_date || v.ntp;
-  const expiry = (() => {
-    if (!startDate || v.contract_duration === "" || Number(v.contract_duration) < 1) return null;
-    const [y, m, d] = startDate.split("-").map(Number);
-    return new Date(Date.UTC(y, m - 1, d + Number(v.contract_duration) - 1)).toISOString().slice(0, 10);
-  })();
 
   const run = (fn: () => Promise<{ error?: string }>) =>
     start(async () => {
@@ -96,7 +108,7 @@ export function ContractDialog({ contract, onClose }: { contract: Contract | nul
 
   return (
     <Dialog open onOpenChange={(o) => !o && onClose()}>
-      <DialogContent title={contract ? "Edit contract" : "New contract"} description="Pre-construction runs Bid, NTP, NOA, CD, CAD. Expiry is Start date plus CD, minus one day.">
+      <DialogContent title={contract ? "Edit contract" : "New contract"} description="Expiry date is suggested as Start date + CD − 1 (start day counts); you can overwrite it.">
         <form
           className="mt-5 space-y-6"
           onSubmit={(e) => {
@@ -111,11 +123,6 @@ export function ContractDialog({ contract, onClose }: { contract: Contract | nul
               <div className="grid gap-3 sm:grid-cols-2">
                 {s.fields.map((f) => <Field key={f.key} f={f} value={v[f.key]} onChange={set(f.key)} />)}
               </div>
-              {s.title === "Construction" && (
-                <p className="mt-2 text-xs text-muted-foreground">
-                  Start date: {formatDate(startDate || null)} · Revised/expiry date: {formatDate(expiry)} (Start + CD − 1)
-                </p>
-              )}
             </fieldset>
           ))}
           <fieldset>

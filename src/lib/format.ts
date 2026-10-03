@@ -50,3 +50,28 @@ export const isOverdue = (c: Pick<Contract, "expiry_date" | "status">, today: st
 
 export const contractLabel = (c: Pick<Contract, "contract_id" | "contract_name">) =>
   c.contract_id ? `${c.contract_id.replace(/\s+/g, " ")} – ${c.contract_name}` : c.contract_name;
+
+const MONTH_LOOKUP = new Map(MONTHS.map((m, i) => [m.toLowerCase(), i + 1]));
+
+const isoOf = (y: number, m: number, d: number) => {
+  const dt = new Date(Date.UTC(y, m - 1, d));
+  if (dt.getUTCFullYear() !== y || dt.getUTCMonth() !== m - 1 || dt.getUTCDate() !== d) return null; // e.g. Feb 31
+  return `${String(y).padStart(4, "0")}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+};
+
+/** "Jan 15, 2026" (also "January 15 2026" or "2026-01-15") -> "2026-01-15"; null when not a real date. */
+export function parseDateInput(s: string): string | null {
+  const t = s.trim();
+  const iso = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(t);
+  if (iso) return isoOf(+iso[1], +iso[2], +iso[3]);
+  const m = /^([A-Za-z]{3,9})\.?\s+(\d{1,2}),?\s+(\d{4})$/.exec(t);
+  const month = m ? MONTH_LOOKUP.get(m[1].slice(0, 3).toLowerCase()) : undefined;
+  return m && month ? isoOf(+m[3], month, +m[2]) : null;
+}
+
+/** Start + calendar days - 1 (start day counts as day one), as YYYY-MM-DD. */
+export function suggestExpiry(start: string, calendarDays: number) {
+  if (!parseDateInput(start) || !Number.isFinite(calendarDays) || calendarDays < 1) return null;
+  const [y, m, d] = start.split("-").map(Number);
+  return new Date(Date.UTC(y, m - 1, d + calendarDays - 1)).toISOString().slice(0, 10);
+}
