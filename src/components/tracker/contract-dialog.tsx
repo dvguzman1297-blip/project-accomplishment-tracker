@@ -187,7 +187,8 @@ export function ContractDialog({ contract, onClose }: { contract: Contract | nul
             </div>
           </fieldset>
           {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-          <div className="flex flex-wrap items-center justify-between gap-2 border-t pt-4">
+          {/* Pinned to the bottom of the scrolling dialog so Save/Cancel stay reachable */}
+          <div className="sticky -bottom-6 z-10 -mx-6 -mb-6 flex flex-wrap items-center justify-between gap-2 border-t bg-card px-6 pb-4 pt-4">
             <div>{contract && <DeleteButton noun="contract" pending={pending} onConfirm={() => run(() => deleteContract(contract.id))} />}</div>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={onClose}>Cancel</Button>
