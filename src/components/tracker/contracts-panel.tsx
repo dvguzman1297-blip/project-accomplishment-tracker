@@ -163,12 +163,14 @@ export function ContractsPanel({
   initialStatus = "",
   initialQuery = "",
   initialRange,
+  initialOpenId,
 }: {
   contracts: Contract[];
   today: string;
   initialStatus?: string;
   initialQuery?: string;
   initialRange?: string;
+  initialOpenId?: string;
 }) {
   const [q, setQ] = useState(initialQuery);
   const [municipality, setMunicipality] = useState("");
@@ -181,7 +183,9 @@ export function ContractsPanel({
   const [from, setFrom] = useState(initialRange === "all" ? "" : `${year}-01-01`);
   const [to, setTo] = useState(initialRange === "all" ? "" : `${year}-12-31`);
   const [includeUndated, setIncludeUndated] = useState(true);
-  const [editing, setEditing] = useState<Contract | "new" | null>(null);
+  const [editing, setEditing] = useState<Contract | "new" | null>(
+    () => (initialOpenId ? contracts.find((c) => c.id === initialOpenId) ?? null : null),
+  );
   const [hiddenCols, setHiddenCols] = useState<Set<string>>(new Set());
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [printOpen, setPrintOpen] = useState(false);

@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Table2 } from "lucide-react";
+import { Bell, LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -15,6 +15,7 @@ const APP_NAME = "Project Accomplishment Tracker";
 const links = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/tracker", label: "Tracker", icon: Table2 },
+  { href: "/notifications", label: "Notifications", icon: Bell },
 ];
 
 const initials = (name: string) =>
@@ -36,12 +37,14 @@ function Avatar({ name }: { name: string }) {
 function Panel({
   name,
   email,
+  notices,
   onNavigate,
   collapsed = false,
   onToggle,
 }: {
   name: string;
   email: string;
+  notices: number;
   onNavigate?: () => void;
   collapsed?: boolean;
   onToggle?: () => void;
@@ -86,6 +89,7 @@ function Panel({
       <nav className={cn("flex-1 space-y-1", collapsed ? "px-2" : "px-3")} aria-label="Main">
         {links.map(({ href, label, icon: Icon }) => {
           const active = pathname.startsWith(href);
+          const count = href === "/notifications" ? notices : 0;
           return (
             <Tooltip key={href} label={label} enabled={collapsed} className="w-full">
               <Link
@@ -101,8 +105,16 @@ function Panel({
                     : "font-medium text-muted-foreground hover:bg-blue-50/60 hover:text-foreground dark:hover:bg-blue-950/30",
                 )}
               >
-                <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                <span className="relative">
+                  <Icon className="h-4 w-4 shrink-0" strokeWidth={1.75} />
+                  {collapsed && count > 0 && <span aria-hidden className="absolute -right-1 -top-1 h-2 w-2 rounded-full bg-destructive" />}
+                </span>
                 {!collapsed && label}
+                {!collapsed && count > 0 && (
+                  <span className="ml-auto rounded-full bg-destructive px-1.5 text-xs font-semibold tabular-nums text-white" aria-label={`${count} pending`}>
+                    {count}
+                  </span>
+                )}
               </Link>
             </Tooltip>
           );
@@ -146,7 +158,7 @@ function Panel({
   );
 }
 
-export function Sidebar({ name, email }: { name: string; email: string }) {
+export function Sidebar({ name, email, notices }: { name: string; email: string; notices: number }) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
 
@@ -177,7 +189,7 @@ export function Sidebar({ name, email }: { name: string; email: string }) {
         <div className="fixed inset-0 z-50 lg:hidden">
           <div className="absolute inset-0 bg-black/50" onClick={() => setOpen(false)} />
           <aside className="absolute left-0 top-0 h-full w-[21rem] max-w-[90vw] border-r bg-card shadow-xl">
-            <Panel name={name} email={email} onNavigate={() => setOpen(false)} />
+            <Panel name={name} email={email} notices={notices} onNavigate={() => setOpen(false)} />
           </aside>
         </div>
       )}
@@ -188,7 +200,7 @@ export function Sidebar({ name, email }: { name: string; email: string }) {
           collapsed ? "w-16" : "w-[21rem]",
         )}
       >
-        <Panel name={name} email={email} collapsed={collapsed} onToggle={toggle} />
+        <Panel name={name} email={email} notices={notices} collapsed={collapsed} onToggle={toggle} />
       </aside>
     </>
   );

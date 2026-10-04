@@ -2,12 +2,10 @@ import Link from "next/link";
 import { BellRing } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Notice } from "@/lib/notifications";
-import type { Contract } from "@/lib/types";
 
 /** As-Built Plan reminders: expiry within 5 days, or progress at 95%+. */
-export function NotificationsPanel({ notices, contracts }: { notices: Notice[]; contracts: Contract[] }) {
+export function NotificationsPanel({ notices }: { notices: Notice[] }) {
   if (notices.length === 0) return null;
-  const byId = new Map(contracts.map((c) => [c.id, c]));
   return (
     <Card className="border-accent/60">
       <CardHeader>
@@ -19,10 +17,9 @@ export function NotificationsPanel({ notices, contracts }: { notices: Notice[]; 
       <CardContent>
         <ul className="divide-y text-sm">
           {notices.map((n) => {
-            const c = byId.get(n.contractId);
             return (
               <li key={`${n.contractId}-${n.kind}`} className="py-2">
-                <Link href={`/tracker?range=all&q=${encodeURIComponent(c?.contract_id ?? c?.contract_name ?? "")}`} className="hover:underline">
+                <Link href={`/tracker?range=all&open=${n.contractId}`} className="hover:underline">
                   <p className="font-medium leading-snug">{n.title}</p>
                   <p className="text-xs text-muted-foreground">{n.detail}</p>
                 </Link>

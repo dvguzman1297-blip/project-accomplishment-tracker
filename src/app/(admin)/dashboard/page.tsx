@@ -89,7 +89,7 @@ export default async function DashboardPage() {
       </div>
       <KpiCards items={kpis} />
       <KpiCards items={statusKpis} columns={3} />
-      <NotificationsPanel notices={buildNotices(contracts, today)} contracts={contracts} />
+      <NotificationsPanel notices={buildNotices(contracts, today)} />
       <DashboardCharts trend={trend} status={status} municipality={municipality} />
     </div>
   );

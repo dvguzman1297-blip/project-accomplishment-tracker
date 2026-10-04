@@ -5,7 +5,7 @@ import { TrackerView } from "@/components/tracker/tracker-view";
 
 export const dynamic = "force-dynamic";
 
-export default async function TrackerPage({ searchParams }: { searchParams: { tab?: string; status?: string; q?: string; range?: string } }) {
+export default async function TrackerPage({ searchParams }: { searchParams: { tab?: string; status?: string; q?: string; range?: string; open?: string; n?: string } }) {
   const supabase = createClient();
   const [c, a] = await Promise.all([
     supabase.from("contracts").select("*").order("item_no", { ascending: true, nullsFirst: false }),
@@ -27,11 +27,12 @@ export default async function TrackerPage({ searchParams }: { searchParams: { ta
         <h1 className="text-2xl font-semibold tracking-tight">Tracker</h1>
         <p className="text-sm text-muted-foreground">Contracts and the accomplishments logged against them.</p>
       </div>
-      <TrackerView contracts={(c.data ?? []) as Contract[]} accomplishments={(a.data ?? []) as Accomplishment[]} today={todayManila()}
+      <TrackerView key={`${searchParams.open ?? ""}-${searchParams.n ?? ""}`} contracts={(c.data ?? []) as Contract[]} accomplishments={(a.data ?? []) as Accomplishment[]} today={todayManila()}
         initialTab={searchParams.tab === "accomplishments" ? "accomplishments" : "contracts"}
         initialStatus={searchParams.status}
         initialQuery={searchParams.q}
         initialRange={searchParams.range}
+        initialOpenId={searchParams.open}
       />
     </div>
   );

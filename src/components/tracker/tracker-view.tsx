@@ -14,6 +14,7 @@ export function TrackerView({
   initialStatus,
   initialQuery,
   initialRange,
+  initialOpenId,
 }: {
   contracts: Contract[];
   accomplishments: Accomplishment[];
@@ -22,6 +23,7 @@ export function TrackerView({
   initialStatus?: string;
   initialQuery?: string;
   initialRange?: string;
+  initialOpenId?: string;
 }) {
   const [tab, setTab] = useState<"contracts" | "accomplishments">(initialTab);
   const tabs = [
@@ -46,7 +48,7 @@ export function TrackerView({
         ))}
       </div>
       {tab === "contracts" ? (
-        <ContractsPanel contracts={contracts} today={today} initialStatus={initialStatus} initialQuery={initialQuery} initialRange={initialRange} />
+        <ContractsPanel contracts={contracts} today={today} initialStatus={initialStatus} initialQuery={initialQuery} initialRange={initialRange} initialOpenId={initialOpenId} />
       ) : (
         <AccomplishmentsPanel accomplishments={accomplishments} contracts={contracts} />
       )}
