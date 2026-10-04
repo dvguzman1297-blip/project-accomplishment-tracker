@@ -1,5 +1,5 @@
 "use client";
-import { useState, useTransition } from "react";
+import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DateInput } from "@/components/ui/date-input";
@@ -33,6 +33,57 @@ function toForm(c: Contract | null): Record<string, string> {
   return v;
 }
 
+/** Plain numeric string ("1234.5") -> accounting display ("1,234.5"). */
+function formatMoney(raw: string) {
+  if (!raw) return "";
+  const [int, dec] = raw.split(".");
+  const grouped = int.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+  return dec === undefined ? grouped : `${grouped}.${dec}`;
+}
+
+/** Text input that shows thousands separators as the user types; the form state keeps the plain number. */
+function MoneyInput({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
+  const ref = useRef<HTMLInputElement>(null);
+  const caret = useRef<number | null>(null);
+
+  // Restore the caret after reformatting, keyed on how many digits/dots sit before it
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el || caret.current == null) return;
+    let seen = 0;
+    let pos = 0;
+    const shown = el.value;
+    while (pos < shown.length && seen < caret.current) {
+      if (shown[pos] !== ",") seen++;
+      pos++;
+    }
+    el.setSelectionRange(pos, pos);
+    caret.current = null;
+  }, [value]);
+
+  return (
+    <Input
+      ref={ref}
+      id={id}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      placeholder="0.00"
+      value={formatMoney(value)}
+      onChange={(e) => {
+        const typed = e.target.value;
+        const at = e.target.selectionStart ?? typed.length;
+        const clean = (s: string) => s.replace(/[^\d.]/g, "");
+        let raw = clean(typed);
+        const dot = raw.indexOf(".");
+        if (dot !== -1) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+        caret.current = clean(typed.slice(0, at)).length;
+        onChange(raw);
+      }}
+    />
+  );
+}
+
 function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (v: string) => void }) {
   const id = `c-${f.key}`;
   return (
@@ -46,6 +97,8 @@ function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (
         <Select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
           {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select>
+      ) : f.type === "money" ? (
+        <MoneyInput id={id} value={value} onChange={onChange} />
       ) : f.type === "date" ? (
         <DateInput id={id} value={value} onChange={onChange} />
       ) : f.type === "textarea" ? (

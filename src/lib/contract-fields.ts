@@ -3,7 +3,7 @@ import { STATUS_OPTIONS } from "./format";
 export interface FieldDef {
   key: string;
   label: string;
-  type?: "text" | "number" | "date" | "textarea" | "select" | "coordinates";
+  type?: "text" | "number" | "money" | "date" | "textarea" | "select" | "coordinates";
   wide?: boolean;
   required?: boolean;
   options?: { value: string; label: string }[];
@@ -37,8 +37,8 @@ export const CONTRACT_SECTIONS: { title: string; fields: FieldDef[] }[] = [
     fields: [
       { key: "contractor", label: "Contractor" },
       { key: "contractor_address", label: "Contractor's address" },
-      { key: "abc", label: "ABC (₱)", type: "number" },
-      { key: "bid_amount", label: "Bid amount (₱)", type: "number" },
+      { key: "abc", label: "ABC (₱)", type: "money" },
+      { key: "bid_amount", label: "Bid amount (₱)", type: "money" },
     ],
   },
   {
