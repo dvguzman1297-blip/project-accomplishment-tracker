@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Bell, LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Table2 } from "lucide-react";
+import { Bell, LayoutDashboard, LogOut, Mail, Menu, PanelLeftClose, PanelLeftOpen, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip } from "@/components/ui/tooltip";
@@ -17,6 +17,9 @@ const links = [
   { href: "/tracker", label: "Tracker", icon: Table2 },
   { href: "/notifications", label: "Notifications", icon: Bell },
 ];
+
+/** Opens Gmail on the signed-in account (Google picks the right one when several are logged in). */
+const gmailUrl = (email: string) => `https://mail.google.com/mail/?authuser=${encodeURIComponent(email)}`;
 
 const initials = (name: string) =>
   name
@@ -127,6 +130,17 @@ function Panel({
             <Tooltip label={`${name} · ${email}`}>
               <span className="p-1"><Avatar name={name} /></span>
             </Tooltip>
+            <Tooltip label="Proceed to Gmail">
+              <a
+                href={gmailUrl(email)}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label="Proceed to Gmail"
+                className="grid h-9 w-9 place-items-center rounded-md text-muted-foreground transition-colors hover:bg-blue-50/60 hover:text-foreground dark:hover:bg-blue-950/30"
+              >
+                <Mail className="h-4 w-4" strokeWidth={1.75} />
+              </a>
+            </Tooltip>
             <Tooltip label="Toggle theme"><ThemeToggle /></Tooltip>
             <Tooltip label="Log out">
               <form action={signOut}>
@@ -145,6 +159,14 @@ function Panel({
                 <p className="truncate text-xs text-muted-foreground" title={email}>{email}</p>
               </div>
             </div>
+            <a
+              href={gmailUrl(email)}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-blue-50/60 hover:text-foreground dark:hover:bg-blue-950/30"
+            >
+              <Mail className="h-4 w-4 shrink-0" strokeWidth={1.75} /> Proceed to Gmail
+            </a>
             <ThemeToggle withLabel />
             <form action={signOut}>
               <Button type="submit" variant="ghost" className="w-full justify-start gap-3 px-3 font-normal text-muted-foreground hover:text-foreground">
