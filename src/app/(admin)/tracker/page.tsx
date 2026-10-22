@@ -22,7 +22,7 @@ export default async function TrackerPage({ searchParams }: { searchParams: { ta
   }
 
   return (
-    <div className="space-y-6">
+    <div className="flex h-[calc(100dvh-7rem)] flex-col gap-6 lg:h-[calc(100dvh-4rem)] print:block print:h-auto">
       <div className="print:hidden">
         <h1 className="text-2xl font-semibold tracking-tight">Tracker</h1>
         <p className="text-sm text-muted-foreground">Contracts and the accomplishments logged against them.</p>

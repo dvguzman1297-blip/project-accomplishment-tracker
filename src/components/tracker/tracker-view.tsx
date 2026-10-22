@@ -32,7 +32,7 @@ export function TrackerView({
   ] as const;
 
   return (
-    <div className="space-y-4">
+    <div className="flex min-h-0 flex-1 flex-col gap-4 print:block">
       <div role="tablist" className="flex gap-6 border-b print:hidden">
         {tabs.map((t) => (
           <button

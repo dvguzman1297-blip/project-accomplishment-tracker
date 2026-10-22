@@ -254,8 +254,8 @@ export function ContractsPanel({
   const columns: Column<Contract>[] = visible;
 
   return (
-    <div className="space-y-3">
-      <div className="space-y-3 print:hidden">
+    <div className="flex min-h-0 flex-1 flex-col gap-3 print:block">
+      <div className="flex min-h-0 flex-1 flex-col gap-3 print:hidden">
         <Toolbar
           search={q}
           onSearch={setQ}

@@ -68,10 +68,10 @@ export function DataTable<T extends { id: string }>({
     setSort((s) => (s?.key !== key ? { key, dir: "asc" } : s.dir === "asc" ? { key, dir: "desc" } : null));
 
   return (
-    <div className="overflow-x-auto rounded-lg border bg-card">
+    <div className="min-h-0 flex-1 overflow-auto rounded-lg border bg-card print:overflow-visible">
       <table className="w-full text-sm">
-        <thead>
-          <tr className="border-b bg-secondary/60 text-left">
+        <thead className="sticky top-0 z-10 bg-secondary shadow-[0_1px_0_0_hsl(var(--border))]">
+          <tr className="text-left">
             {selection && (
               <th className="w-8 px-3 py-2.5">
                 <input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="Select all shown rows" />
