@@ -1,5 +1,5 @@
 "use client";
-import { Fragment, useLayoutEffect, useRef, useState, useTransition } from "react";
+import { useLayoutEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DateInput } from "@/components/ui/date-input";
@@ -87,34 +87,47 @@ function MoneyInput({ id, value, onChange }: { id: string; value: string; onChan
 /** Text input that only lets through digits and up to two decimals; the form state keeps the plain number. */
 function PercentInput({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
   return (
-    <Input
-      id={id}
-      type="text"
-      inputMode="decimal"
-      autoComplete="off"
-      placeholder="0.00"
-      value={value}
-      onChange={(e) => {
-        let raw = e.target.value.replace(/[^\d.]/g, "");
-        const dot = raw.indexOf(".");
-        if (dot !== -1) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "").slice(0, 2);
-        onChange(raw);
-      }}
-    />
+    <div className="relative">
+      <Input
+        id={id}
+        type="text"
+        inputMode="decimal"
+        autoComplete="off"
+        placeholder="0.00"
+        className="pr-8"
+        value={value}
+        onChange={(e) => {
+          let raw = e.target.value.replace(/[^\d.]/g, "");
+          const dot = raw.indexOf(".");
+          if (dot !== -1) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+          onChange(raw);
+        }}
+      />
+      <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">%</span>
+    </div>
   );
 }
 
-/** Read-only result of Actual - Planned; `value` is the computed number as a string ("" until both are entered). */
-function SlippageValue({ id, value }: { id: string; value: string }) {
+/** Read-only result of Actual - Planned; `value` is the number as a string ("" until both are entered). */
+function SlippageValue({ id, value, title }: { id: string; value: string; title?: string }) {
   const n = value === "" ? null : Number(value);
   return (
-    <output id={id} className={`flex h-9 items-center rounded-md border bg-muted px-3 text-sm ${n != null && n < 0 ? "font-medium text-destructive" : ""}`}>
-      {n == null ? "—" : `${n > 0 ? "+" : ""}${n}%`}
-    </output>
+    <div className="relative">
+      <Input
+        id={id}
+        title={title}
+        readOnly
+        tabIndex={-1}
+        placeholder="0.00"
+        className={`pr-8 bg-muted ${n != null && n < 0 ? "text-destructive" : ""}`}
+        value={n == null ? "" : String(n)}
+      />
+      <span aria-hidden className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-sm text-muted-foreground">%</span>
+    </div>
   );
 }
 
-function Field({ f, value, onChange, updatedAt }: { f: FieldDef; value: string; onChange: (v: string) => void; updatedAt?: string | null }) {
+function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (v: string) => void }) {
   const id = `c-${f.key}`;
   return (
     <div className={f.wide ? "sm:col-span-2" : undefined}>
@@ -122,7 +135,7 @@ function Field({ f, value, onChange, updatedAt }: { f: FieldDef; value: string; 
         {f.label}{f.required && " *"}
               </Label>
       {f.type === "slippage" ? (
-        <SlippageValue id={id} value={value} />
+        <SlippageValue id={id} value={value} title={f.hint} />
       ) : f.type === "coordinates" ? (
         <CoordinatesField id={id} value={value} onChange={onChange} />
       ) : f.type === "select" ? (
@@ -149,8 +162,7 @@ function Field({ f, value, onChange, updatedAt }: { f: FieldDef; value: string; 
           onChange={(e) => onChange(e.target.value)}
         />
       )}
-      {f.hint && <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>}
-      {f.updatedKey && <p className="mt-1 text-xs text-muted-foreground">Last updated: {formatStamp(updatedAt)}</p>}
+      {f.hint && f.type !== "slippage" && <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>}
     </div>
   );
 }
@@ -207,18 +219,23 @@ export function ContractDialog({ contract, onClose }: { contract: Contract | nul
         >
           {CONTRACT_SECTIONS.map((s) => (
             <fieldset key={s.title}>
-              <legend className="mb-2 text-sm font-semibold">{s.title}</legend>
-              <div className="grid gap-3 sm:grid-cols-2">
+              <legend className="mb-2 flex w-full items-baseline gap-2 text-sm font-semibold">
+                {s.title}
+                {s.updatedKey && (
+                  <span className="text-xs font-normal text-muted-foreground">
+                    <span aria-hidden className="mr-2">·</span>
+                    {contract?.[s.updatedKey] ? `Last updated ${formatStamp(contract[s.updatedKey])}` : "Not updated yet"}
+                  </span>
+                )}
+              </legend>
+              <div className={`grid gap-3 ${s.columns === 3 ? "sm:grid-cols-3" : "sm:grid-cols-2"}`}>
                 {s.fields.map((f) => (
-                  <Fragment key={f.key}>
-                    <Field
-                      f={f}
-                      value={f.computed ? String(slippage(v[f.computed.actual], v[f.computed.planned]) ?? "") : v[f.key]}
-                      onChange={set(f.key)}
-                      updatedAt={f.updatedKey ? contract?.[f.updatedKey] : null}
-                    />
-                    {f.blankAfter && <div aria-hidden className="hidden sm:block" />}
-                  </Fragment>
+                  <Field
+                    key={f.key}
+                    f={f}
+                    value={f.computed ? String(slippage(v[f.computed.actual], v[f.computed.planned]) ?? "") : v[f.key]}
+                    onChange={set(f.key)}
+                  />
                 ))}
               </div>
             </fieldset>

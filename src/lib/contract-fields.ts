@@ -4,10 +4,6 @@ export interface FieldDef {
   key: string;
   label: string;
   type?: "text" | "number" | "money" | "date" | "textarea" | "select" | "coordinates" | "slippage" | "percent";
-  /** Leaves the right grid cell empty so the field stays in the left-hand column. */
-  blankAfter?: boolean;
-  /** slippage fields only: the Contract column holding when the Actual/PCMA pct last changed (shown under the field, never edited). */
-  updatedKey?: "progress_updated_at" | "pcma_updated_at";
   /** slippage fields only: the form keys they are derived from. Never saved. */
   computed?: { actual: string; planned: string };
   wide?: boolean;
@@ -18,8 +14,17 @@ export interface FieldDef {
   hint?: string;
 }
 
+export interface SectionDef {
+  title: string;
+  fields: FieldDef[];
+  /** Fields per row on wide screens (default 2). */
+  columns?: 3;
+  /** Contract column holding when this section's main value last changed; shown beside the title, never edited. */
+  updatedKey?: "progress_updated_at" | "pcma_updated_at";
+}
+
 /** Mirrors the column groups of the workbook. Drives both the edit form and CSV export. */
-export const CONTRACT_SECTIONS: { title: string; fields: FieldDef[] }[] = [
+export const CONTRACT_SECTIONS: SectionDef[] = [
   {
     title: "Contract",
     fields: [
@@ -76,12 +81,26 @@ export const CONTRACT_SECTIONS: { title: string; fields: FieldDef[] }[] = [
       { key: "expiry_date", label: "Expiry date", type: "date", hint: "Suggested as Start date + CD − 1; you can change it." },
       { key: "status", label: "Status", type: "select", options: STATUS_OPTIONS },
       { key: "actual_completion_date", label: "Actual completion date", type: "date" },
-      { key: "planned_actual_pct", label: "Planned Actual pct (%)", type: "percent" },
-      { key: "progress_percentage", label: "Actual pct (%)", type: "percent" },
-      { key: "slippage_actual", label: "Slippage for Actual", type: "slippage", blankAfter: true, updatedKey: "progress_updated_at", hint: "Actual pct − Planned Actual pct (automatic).", computed: { actual: "progress_percentage", planned: "planned_actual_pct" } },
-      { key: "planned_pcma_pct", label: "Planned PCMA pct (%)", type: "percent" },
-      { key: "pcma_pct", label: "PCMA pct (%)", type: "percent" },
-      { key: "slippage_pcma", label: "Slippage for PCMA", type: "slippage", blankAfter: true, updatedKey: "pcma_updated_at", hint: "PCMA pct − Planned PCMA pct (automatic).", computed: { actual: "pcma_pct", planned: "planned_pcma_pct" } },
+    ],
+  },
+  {
+    title: "Actual progress",
+    columns: 3,
+    updatedKey: "progress_updated_at",
+    fields: [
+      { key: "planned_actual_pct", label: "Planned Actual pct", type: "percent" },
+      { key: "progress_percentage", label: "Actual pct", type: "percent" },
+      { key: "slippage_actual", label: "Slippage for Actual", type: "slippage", hint: "Actual pct − Planned Actual pct", computed: { actual: "progress_percentage", planned: "planned_actual_pct" } },
+    ],
+  },
+  {
+    title: "PCMA progress",
+    columns: 3,
+    updatedKey: "pcma_updated_at",
+    fields: [
+      { key: "planned_pcma_pct", label: "Planned PCMA pct", type: "percent" },
+      { key: "pcma_pct", label: "PCMA pct", type: "percent" },
+      { key: "slippage_pcma", label: "Slippage for PCMA", type: "slippage", hint: "PCMA pct − Planned PCMA pct", computed: { actual: "pcma_pct", planned: "planned_pcma_pct" } },
     ],
   },
 ];
