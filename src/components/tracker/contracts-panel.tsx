@@ -9,7 +9,7 @@ import { DateRangePicker } from "@/components/ui/date-range-picker";
 import { LabeledSelect } from "@/components/ui/labeled-select";
 import { Popover } from "@/components/ui/popover";
 import { RoadProgress } from "@/components/ui/road-progress";
-import { CONTRACT_FIELDS } from "@/lib/contract-fields";
+import { CONTRACT_FIELDS, slippage } from "@/lib/contract-fields";
 import { downloadCsv, type CsvColumn } from "@/lib/csv";
 import { STATUS_META, STATUS_OPTIONS, formatDate, formatPeso, isOverdue } from "@/lib/format";
 import type { Contract } from "@/lib/types";
@@ -61,7 +61,24 @@ const moneyCol = (key: "abc" | "bid_amount", header: string) =>
     search: (c) => (c[key] == null ? "" : `${formatPeso(c[key])} ${c[key]}`),
   });
 
-const attachCol = (key: "as_built_request_form_path" | "as_built_plan_path", header: string) =>
+const pctCol = (key: "planned_actual_pct" | "planned_pcma_pct" | "pcma_pct", header: string) =>
+  col(key, header, "Status and remarks", (c) => (c[key] == null ? "" : `${c[key]}%`), { align: "right", sort: (c) => c[key] });
+
+/** Actual - Planned in percentage points; negative (behind plan) shows in red. */
+const slippageCol = (key: string, header: string, actual: "progress_percentage" | "pcma_pct", planned: "planned_actual_pct" | "planned_pcma_pct") => {
+  const value = (c: Contract) => slippage(c[actual], c[planned]);
+  const label = (n: number | null) => (n == null ? "" : `${n > 0 ? "+" : ""}${n}%`);
+  return col(key, header, "Status and remarks", (c) => label(value(c)), {
+    align: "right",
+    sort: value,
+    cell: (c) => {
+      const n = value(c);
+      return n == null ? "—" : <span className={n < 0 ? "font-medium text-destructive" : undefined}>{label(n)}</span>;
+    },
+  });
+};
+
+const attachCol =(key: "as_built_request_form_path" | "as_built_plan_path", header: string) =>
   col(key, header, "Attachments", (c) => (c[key] ? "Attached" : "Missing"), {
     cell: (c) =>
       c[key] ? (
@@ -122,12 +139,18 @@ const SPECS: Spec[] = [
       <Badge className={STATUS_META[c.status].cls} title={STATUS_META[c.status].full}>{STATUS_META[c.status].label}</Badge>
     ),
   }),
-  col("progress", "Progress", "Status and remarks", (c) => `${c.progress_percentage}%`, {
+  dateCol("actual_completion_date", "Actual completion", "Status and remarks"),
+  pctCol("planned_actual_pct", "Planned Actual pct"),
+  col("progress", "Actual pct", "Status and remarks", (c) => `${c.progress_percentage}%`, {
     sort: (c) => c.progress_percentage,
     cell: (c) => <RoadProgress value={c.progress_percentage} />,
   }),
-  dateCol("actual_completion_date", "Actual completion", "Status and remarks"),
-  textCol("remarks", "Remarks", "Status and remarks", "min-w-[14rem]"),
+  textCol("remarks", "Remarks for Actual", "Status and remarks", "min-w-[14rem]"),
+  slippageCol("slippage_actual", "Slippage for Actual", "progress_percentage", "planned_actual_pct"),
+  pctCol("planned_pcma_pct", "Planned PCMA pct"),
+  pctCol("pcma_pct", "PCMA pct"),
+  textCol("remarks_pcma", "Remarks for PCMA", "Status and remarks", "min-w-[14rem]"),
+  slippageCol("slippage_pcma", "Slippage for PCMA", "pcma_pct", "planned_pcma_pct"),
 
   attachCol("as_built_request_form_path", "As-Built Request Form"),
   attachCol("as_built_plan_path", "As-Built Plan"),
@@ -138,6 +161,7 @@ const csvCols: CsvColumn<Contract>[] = CONTRACT_FIELDS.flatMap((f) => {
   const col: CsvColumn<Contract> = {
     header: f.label,
     value: (c) => {
+      if (f.computed) return slippage(c[f.computed.actual as keyof Contract], c[f.computed.planned as keyof Contract]);
       const raw = (c as unknown as Record<string, string | number | null>)[f.key];
       return f.key === "status" ? STATUS_META[c.status].full : raw;
     },

@@ -3,7 +3,9 @@ import { STATUS_OPTIONS } from "./format";
 export interface FieldDef {
   key: string;
   label: string;
-  type?: "text" | "number" | "money" | "date" | "textarea" | "select" | "coordinates";
+  type?: "text" | "number" | "money" | "date" | "textarea" | "select" | "coordinates" | "slippage" | "percent";
+  /** slippage fields only: the form keys they are derived from. Never saved. */
+  computed?: { actual: string; planned: string };
   wide?: boolean;
   required?: boolean;
   options?: { value: string; label: string }[];
@@ -69,11 +71,25 @@ export const CONTRACT_SECTIONS: { title: string; fields: FieldDef[] }[] = [
       { key: "start_date", label: "Start date", type: "date", hint: "Suggested from the NTP; you can change it." },
       { key: "expiry_date", label: "Expiry date", type: "date", hint: "Suggested as Start date + CD − 1; you can change it." },
       { key: "status", label: "Status", type: "select", options: STATUS_OPTIONS },
-      { key: "progress_percentage", label: "Progress (%)", type: "number", min: 0, max: 100 },
       { key: "actual_completion_date", label: "Actual completion date", type: "date" },
-      { key: "remarks", label: "Remarks", type: "textarea", wide: true },
+      { key: "planned_actual_pct", label: "Planned Actual pct (%)", type: "percent" },
+      { key: "progress_percentage", label: "Actual pct (%)", type: "percent" },
+      { key: "remarks", label: "Remarks for Actual", type: "textarea" },
+      { key: "slippage_actual", label: "Slippage for Actual", type: "slippage", hint: "Actual pct − Planned Actual pct (automatic).", computed: { actual: "progress_percentage", planned: "planned_actual_pct" } },
+      { key: "planned_pcma_pct", label: "Planned PCMA pct (%)", type: "percent" },
+      { key: "pcma_pct", label: "PCMA pct (%)", type: "percent" },
+      { key: "remarks_pcma", label: "Remarks for PCMA", type: "textarea" },
+      { key: "slippage_pcma", label: "Slippage for PCMA", type: "slippage", hint: "PCMA pct − Planned PCMA pct (automatic).", computed: { actual: "pcma_pct", planned: "planned_pcma_pct" } },
     ],
   },
 ];
+
+/** Actual - Planned, or null until both are entered. */
+export function slippage(actual: unknown, planned: unknown): number | null {
+  if (actual === "" || actual == null || planned === "" || planned == null) return null;
+  const a = Number(actual);
+  const p = Number(planned);
+  return Number.isFinite(a) && Number.isFinite(p) ? Math.round((a - p) * 100) / 100 : null;
+}
 
 export const CONTRACT_FIELDS = CONTRACT_SECTIONS.flatMap((s) => s.fields);

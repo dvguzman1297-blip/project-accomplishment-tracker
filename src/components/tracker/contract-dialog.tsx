@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DateInput } from "@/components/ui/date-input";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
-import { CONTRACT_FIELDS, CONTRACT_SECTIONS, type FieldDef } from "@/lib/contract-fields";
+import { CONTRACT_FIELDS, CONTRACT_SECTIONS, slippage, type FieldDef } from "@/lib/contract-fields";
 import { suggestExpiry } from "@/lib/format";
 import type { Contract } from "@/lib/types";
 import { deleteContract, saveContract } from "@/app/(admin)/tracker/actions";
@@ -84,6 +84,36 @@ function MoneyInput({ id, value, onChange }: { id: string; value: string; onChan
   );
 }
 
+/** Text input that only lets through digits and up to two decimals; the form state keeps the plain number. */
+function PercentInput({ id, value, onChange }: { id: string; value: string; onChange: (v: string) => void }) {
+  return (
+    <Input
+      id={id}
+      type="text"
+      inputMode="decimal"
+      autoComplete="off"
+      placeholder="0.00"
+      value={value}
+      onChange={(e) => {
+        let raw = e.target.value.replace(/[^\d.]/g, "");
+        const dot = raw.indexOf(".");
+        if (dot !== -1) raw = raw.slice(0, dot + 1) + raw.slice(dot + 1).replace(/\./g, "").slice(0, 2);
+        onChange(raw);
+      }}
+    />
+  );
+}
+
+/** Read-only result of Actual - Planned; `value` is the computed number as a string ("" until both are entered). */
+function SlippageValue({ id, value }: { id: string; value: string }) {
+  const n = value === "" ? null : Number(value);
+  return (
+    <output id={id} className={`flex h-9 items-center rounded-md border bg-muted px-3 text-sm ${n != null && n < 0 ? "font-medium text-destructive" : ""}`}>
+      {n == null ? "—" : `${n > 0 ? "+" : ""}${n}%`}
+    </output>
+  );
+}
+
 function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (v: string) => void }) {
   const id = `c-${f.key}`;
   return (
@@ -91,12 +121,16 @@ function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (
       <Label htmlFor={id}>
         {f.label}{f.required && " *"}
               </Label>
-      {f.type === "coordinates" ? (
+      {f.type === "slippage" ? (
+        <SlippageValue id={id} value={value} />
+      ) : f.type === "coordinates" ? (
         <CoordinatesField id={id} value={value} onChange={onChange} />
       ) : f.type === "select" ? (
         <Select id={id} value={value} onChange={(e) => onChange(e.target.value)}>
           {f.options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </Select>
+      ) : f.type === "percent" ? (
+        <PercentInput id={id} value={value} onChange={onChange} />
       ) : f.type === "money" ? (
         <MoneyInput id={id} value={value} onChange={onChange} />
       ) : f.type === "date" ? (
@@ -174,7 +208,14 @@ export function ContractDialog({ contract, onClose }: { contract: Contract | nul
             <fieldset key={s.title}>
               <legend className="mb-2 text-sm font-semibold">{s.title}</legend>
               <div className="grid gap-3 sm:grid-cols-2">
-                {s.fields.map((f) => <Field key={f.key} f={f} value={v[f.key]} onChange={set(f.key)} />)}
+                {s.fields.map((f) => (
+                  <Field
+                    key={f.key}
+                    f={f}
+                    value={f.computed ? String(slippage(v[f.computed.actual], v[f.computed.planned]) ?? "") : v[f.key]}
+                    onChange={set(f.key)}
+                  />
+                ))}
               </div>
             </fieldset>
           ))}

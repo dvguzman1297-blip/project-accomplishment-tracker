@@ -13,8 +13,14 @@ const text = z.preprocess(clean, z.string().nullable());
 const date = z.preprocess(clean, z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Enter dates as YYYY-MM-DD").nullable());
 const money = z.preprocess(clean, z.coerce.number().min(0, "Amounts cannot be negative").nullable());
 const whole = z.preprocess(clean, z.coerce.number().int("Enter a whole number").min(0, "Numbers cannot be negative").nullable());
+const pctNumber = z.coerce
+  .number()
+  .min(0, "Percentages are 0 to 100")
+  .max(100, "Percentages are 0 to 100")
+  .refine((n) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6, "Use up to two decimal places");
+const pct = z.preprocess(clean, pctNumber.nullable());
 
-const coordinates = z.preprocess(
+const coordinates =z.preprocess(
   clean,
   z
     .string()
@@ -53,9 +59,13 @@ export const contractSchema = z
   start_date: date,
   expiry_date: date,
   status: z.enum(["nys", "ongoing", "completed", "suspended"]),
-  progress_percentage: z.coerce.number().int("Progress must be a whole number").min(0, "Progress is 0 to 100").max(100, "Progress is 0 to 100"),
+  progress_percentage: pctNumber,
   actual_completion_date: date,
   remarks: text,
+  planned_actual_pct: pct,
+  planned_pcma_pct: pct,
+  pcma_pct: pct,
+  remarks_pcma: text,
   as_built_request_form_path: text,
   as_built_plan_path: text,
   })

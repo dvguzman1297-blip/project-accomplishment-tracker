@@ -32,6 +32,10 @@ export interface Contract {
   progress_percentage: number;
   actual_completion_date: string | null;
   remarks: string | null;
+  planned_actual_pct: number | null;
+  planned_pcma_pct: number | null;
+  pcma_pct: number | null;
+  remarks_pcma: string | null;
   as_built_request_form_path: string | null;
   as_built_plan_path: string | null;
   created_at: string;

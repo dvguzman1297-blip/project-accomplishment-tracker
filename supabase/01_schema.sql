@@ -66,11 +66,15 @@ create table if not exists tracker.contracts (
 
   -- Accomplishment tracking
   status                 tracker.project_status not null default 'nys',
-  progress_percentage    integer not null default 0 check (progress_percentage between 0 and 100),
+  progress_percentage    numeric(5,2) not null default 0 check (progress_percentage between 0 and 100),
   actual_completion_date date,
-  remarks                text,
+  remarks                text,                            -- "Remarks for Actual"
+  planned_actual_pct     numeric(5,2) check (planned_actual_pct between 0 and 100),
+  planned_pcma_pct       numeric(5,2) check (planned_pcma_pct between 0 and 100),
+  pcma_pct               numeric(5,2) check (pcma_pct between 0 and 100),
+  remarks_pcma           text,
 
-  created_at             timestamptz not null default now(),
+  created_at            timestamptz not null default now(),
   updated_at             timestamptz not null default now()
 );
 
