@@ -11,7 +11,7 @@ import { Popover } from "@/components/ui/popover";
 import { RoadProgress } from "@/components/ui/road-progress";
 import { CONTRACT_FIELDS, slippage } from "@/lib/contract-fields";
 import { downloadCsv, type CsvColumn } from "@/lib/csv";
-import { STATUS_META, STATUS_OPTIONS, formatDate, formatPeso, isOverdue } from "@/lib/format";
+import { STATUS_META, STATUS_OPTIONS, formatDate, formatStamp, formatPeso, isOverdue } from "@/lib/format";
 import type { Contract } from "@/lib/types";
 import { ContractDialog } from "./contract-dialog";
 import { CoordinateLink } from "./coordinate-link";
@@ -19,8 +19,8 @@ import { Toolbar } from "./toolbar";
 
 const distinct = (xs: (string | null)[]) => [...new Set(xs.filter((x): x is string => !!x?.trim()))].sort();
 
-type Group = "Contract" | "Locations" | "Contractor and cost" | "Authorities" | "Pre-construction" | "Construction" | "Status and remarks" | "Attachments";
-const GROUPS: Group[] = ["Contract", "Locations", "Contractor and cost", "Authorities", "Pre-construction", "Construction", "Status and remarks", "Attachments"];
+type Group = "Contract" | "Locations" | "Contractor and cost" | "Authorities" | "Pre-construction" | "Construction" | "Status and progress" | "Attachments";
+const GROUPS: Group[] = ["Contract", "Locations", "Contractor and cost", "Authorities", "Pre-construction", "Construction", "Status and progress", "Attachments"];
 
 interface Spec extends Column<Contract> {
   group: Group;
@@ -50,7 +50,14 @@ const dateCol = (key: keyof Contract & string, header: string, group: Group) =>
     search: (c) => (c[key] ? `${formatDate(c[key] as string)} ${c[key]}` : ""),
   });
 
-const textCol = (key: keyof Contract & string, header: string, group: Group, className?: string) =>
+/** When a percentage last changed (a timestamp, shown as a Manila-time date). */
+const stampCol = (key: "progress_updated_at" | "pcma_updated_at", header: string) =>
+  col(key, header, "Status and progress", (c) => (c[key] ? formatStamp(c[key]) : ""), {
+    cell: (c) => nowrap(formatStamp(c[key])),
+    sort: (c) => c[key],
+  });
+
+const textCol =(key: keyof Contract & string, header: string, group: Group, className?: string) =>
   col(key, header, group, (c) => (c[key] == null ? "" : String(c[key])), { sort: (c) => c[key] as string | number | null, className });
 
 const moneyCol = (key: "abc" | "bid_amount", header: string) =>
@@ -62,13 +69,13 @@ const moneyCol = (key: "abc" | "bid_amount", header: string) =>
   });
 
 const pctCol = (key: "planned_actual_pct" | "planned_pcma_pct" | "pcma_pct", header: string) =>
-  col(key, header, "Status and remarks", (c) => (c[key] == null ? "" : `${c[key]}%`), { align: "right", sort: (c) => c[key] });
+  col(key, header, "Status and progress", (c) => (c[key] == null ? "" : `${c[key]}%`), { align: "right", sort: (c) => c[key] });
 
 /** Actual - Planned in percentage points; negative (behind plan) shows in red. */
 const slippageCol = (key: string, header: string, actual: "progress_percentage" | "pcma_pct", planned: "planned_actual_pct" | "planned_pcma_pct") => {
   const value = (c: Contract) => slippage(c[actual], c[planned]);
   const label = (n: number | null) => (n == null ? "" : `${n > 0 ? "+" : ""}${n}%`);
-  return col(key, header, "Status and remarks", (c) => label(value(c)), {
+  return col(key, header, "Status and progress", (c) => label(value(c)), {
     align: "right",
     sort: value,
     cell: (c) => {
@@ -132,24 +139,24 @@ const SPECS: Spec[] = [
   dateCol("start_date", "Start date", "Construction"),
   dateCol("expiry_date", "Expiry date", "Construction"),
 
-  col("status", "Status", "Status and remarks", (c) => STATUS_META[c.status].label, {
+  col("status", "Status", "Status and progress", (c) => STATUS_META[c.status].label, {
     sort: (c) => c.status,
     search: (c) => `${STATUS_META[c.status].label} ${STATUS_META[c.status].full}`,
     cell: (c) => (
       <Badge className={STATUS_META[c.status].cls} title={STATUS_META[c.status].full}>{STATUS_META[c.status].label}</Badge>
     ),
   }),
-  dateCol("actual_completion_date", "Actual completion", "Status and remarks"),
+  dateCol("actual_completion_date", "Actual completion", "Status and progress"),
   pctCol("planned_actual_pct", "Planned Actual pct"),
-  col("progress", "Actual pct", "Status and remarks", (c) => `${c.progress_percentage}%`, {
+  col("progress", "Actual pct", "Status and progress", (c) => `${c.progress_percentage}%`, {
     sort: (c) => c.progress_percentage,
     cell: (c) => <RoadProgress value={c.progress_percentage} />,
   }),
-  textCol("remarks", "Remarks for Actual", "Status and remarks", "min-w-[14rem]"),
+  stampCol("progress_updated_at", "Actual pct updated"),
   slippageCol("slippage_actual", "Slippage for Actual", "progress_percentage", "planned_actual_pct"),
   pctCol("planned_pcma_pct", "Planned PCMA pct"),
   pctCol("pcma_pct", "PCMA pct"),
-  textCol("remarks_pcma", "Remarks for PCMA", "Status and remarks", "min-w-[14rem]"),
+  stampCol("pcma_updated_at", "PCMA pct updated"),
   slippageCol("slippage_pcma", "Slippage for PCMA", "pcma_pct", "planned_pcma_pct"),
 
   attachCol("as_built_request_form_path", "As-Built Request Form"),
@@ -169,6 +176,8 @@ const csvCols: CsvColumn<Contract>[] = CONTRACT_FIELDS.flatMap((f) => {
   return [col];
 });
 csvCols.push(
+  { header: "Actual pct updated", value: (c) => (c.progress_updated_at ? formatStamp(c.progress_updated_at) : "") },
+  { header: "PCMA pct updated", value: (c) => (c.pcma_updated_at ? formatStamp(c.pcma_updated_at) : "") },
   { header: "As-Built Request Form", value: (c) => (c.as_built_request_form_path ? "Attached" : "Missing") },
   { header: "As-Built Plan", value: (c) => (c.as_built_plan_path ? "Attached" : "Missing") },
 );

@@ -68,11 +68,12 @@ create table if not exists tracker.contracts (
   status                 tracker.project_status not null default 'nys',
   progress_percentage    numeric(5,2) not null default 0 check (progress_percentage between 0 and 100),
   actual_completion_date date,
-  remarks                text,                            -- "Remarks for Actual"
+  remarks                text,                            -- legacy; no longer edited in the app
   planned_actual_pct     numeric(5,2) check (planned_actual_pct between 0 and 100),
   planned_pcma_pct       numeric(5,2) check (planned_pcma_pct between 0 and 100),
   pcma_pct               numeric(5,2) check (pcma_pct between 0 and 100),
-  remarks_pcma           text,
+  progress_updated_at    timestamptz,                     -- when Actual pct last changed (trigger below)
+  pcma_updated_at        timestamptz,                     -- when PCMA pct last changed (trigger below)
 
   created_at            timestamptz not null default now(),
   updated_at             timestamptz not null default now()
@@ -112,6 +113,26 @@ $$;
 drop trigger if exists trg_contracts_start_date on tracker.contracts;
 create trigger trg_contracts_start_date before insert or update on tracker.contracts
   for each row execute function tracker.default_start_date();
+
+create or replace function tracker.stamp_pct_updates()
+returns trigger language plpgsql as $$
+begin
+  if tg_op = 'INSERT' then
+    new.progress_updated_at = now();
+    new.pcma_updated_at     = case when new.pcma_pct is null then null else now() end;
+  else
+    if new.progress_percentage is distinct from old.progress_percentage then new.progress_updated_at = now();
+    else new.progress_updated_at = old.progress_updated_at; end if;
+    if new.pcma_pct is distinct from old.pcma_pct then new.pcma_updated_at = case when new.pcma_pct is null then null else now() end;
+    else new.pcma_updated_at = old.pcma_updated_at; end if;
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists trg_contracts_pct_stamp on tracker.contracts;
+create trigger trg_contracts_pct_stamp before insert or update on tracker.contracts
+  for each row execute function tracker.stamp_pct_updates();
 
 drop trigger if exists trg_accomplishments_updated_at on tracker.accomplishments;
 create trigger trg_accomplishments_updated_at before update on tracker.accomplishments

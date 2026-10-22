@@ -1,11 +1,11 @@
 "use client";
-import { useLayoutEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useLayoutEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { DateInput } from "@/components/ui/date-input";
 import { Input, Label, Select, Textarea } from "@/components/ui/input";
 import { CONTRACT_FIELDS, CONTRACT_SECTIONS, slippage, type FieldDef } from "@/lib/contract-fields";
-import { suggestExpiry } from "@/lib/format";
+import { formatStamp, suggestExpiry } from "@/lib/format";
 import type { Contract } from "@/lib/types";
 import { deleteContract, saveContract } from "@/app/(admin)/tracker/actions";
 import { AttachmentField } from "./attachment-field";
@@ -114,7 +114,7 @@ function SlippageValue({ id, value }: { id: string; value: string }) {
   );
 }
 
-function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (v: string) => void }) {
+function Field({ f, value, onChange, updatedAt }: { f: FieldDef; value: string; onChange: (v: string) => void; updatedAt?: string | null }) {
   const id = `c-${f.key}`;
   return (
     <div className={f.wide ? "sm:col-span-2" : undefined}>
@@ -150,6 +150,7 @@ function Field({ f, value, onChange }: { f: FieldDef; value: string; onChange: (
         />
       )}
       {f.hint && <p className="mt-1 text-xs text-muted-foreground">{f.hint}</p>}
+      {f.updatedKey && <p className="mt-1 text-xs text-muted-foreground">Last updated: {formatStamp(updatedAt)}</p>}
     </div>
   );
 }
@@ -209,12 +210,15 @@ export function ContractDialog({ contract, onClose }: { contract: Contract | nul
               <legend className="mb-2 text-sm font-semibold">{s.title}</legend>
               <div className="grid gap-3 sm:grid-cols-2">
                 {s.fields.map((f) => (
-                  <Field
-                    key={f.key}
-                    f={f}
-                    value={f.computed ? String(slippage(v[f.computed.actual], v[f.computed.planned]) ?? "") : v[f.key]}
-                    onChange={set(f.key)}
-                  />
+                  <Fragment key={f.key}>
+                    <Field
+                      f={f}
+                      value={f.computed ? String(slippage(v[f.computed.actual], v[f.computed.planned]) ?? "") : v[f.key]}
+                      onChange={set(f.key)}
+                      updatedAt={f.updatedKey ? contract?.[f.updatedKey] : null}
+                    />
+                    {f.blankAfter && <div aria-hidden className="hidden sm:block" />}
+                  </Fragment>
                 ))}
               </div>
             </fieldset>

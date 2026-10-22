@@ -42,6 +42,10 @@ export function formatDate(s: string | null | undefined) {
   return `${MONTHS[m - 1]} ${String(d).padStart(2, "0")}, ${y}`;
 }
 
+/** A timestamptz as a date in Philippine time, e.g. "Oct 22, 2026" */
+export const formatStamp = (ts: string | null | undefined) =>
+  ts ? formatDate(new Date(ts).toLocaleDateString("en-CA", { timeZone: "Asia/Manila" })) : "—";
+
 /** Today as YYYY-MM-DD in Philippine time */
 export const todayManila = () => new Date().toLocaleDateString("en-CA", { timeZone: "Asia/Manila" });
 

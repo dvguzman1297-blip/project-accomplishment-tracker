@@ -61,11 +61,9 @@ export const contractSchema = z
   status: z.enum(["nys", "ongoing", "completed", "suspended"]),
   progress_percentage: pctNumber,
   actual_completion_date: date,
-  remarks: text,
   planned_actual_pct: pct,
   planned_pcma_pct: pct,
   pcma_pct: pct,
-  remarks_pcma: text,
   as_built_request_form_path: text,
   as_built_plan_path: text,
   })

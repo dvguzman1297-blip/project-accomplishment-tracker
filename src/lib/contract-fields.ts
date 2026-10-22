@@ -4,6 +4,10 @@ export interface FieldDef {
   key: string;
   label: string;
   type?: "text" | "number" | "money" | "date" | "textarea" | "select" | "coordinates" | "slippage" | "percent";
+  /** Leaves the right grid cell empty so the field stays in the left-hand column. */
+  blankAfter?: boolean;
+  /** slippage fields only: the Contract column holding when the Actual/PCMA pct last changed (shown under the field, never edited). */
+  updatedKey?: "progress_updated_at" | "pcma_updated_at";
   /** slippage fields only: the form keys they are derived from. Never saved. */
   computed?: { actual: string; planned: string };
   wide?: boolean;
@@ -74,12 +78,10 @@ export const CONTRACT_SECTIONS: { title: string; fields: FieldDef[] }[] = [
       { key: "actual_completion_date", label: "Actual completion date", type: "date" },
       { key: "planned_actual_pct", label: "Planned Actual pct (%)", type: "percent" },
       { key: "progress_percentage", label: "Actual pct (%)", type: "percent" },
-      { key: "remarks", label: "Remarks for Actual", type: "textarea" },
-      { key: "slippage_actual", label: "Slippage for Actual", type: "slippage", hint: "Actual pct − Planned Actual pct (automatic).", computed: { actual: "progress_percentage", planned: "planned_actual_pct" } },
+      { key: "slippage_actual", label: "Slippage for Actual", type: "slippage", blankAfter: true, updatedKey: "progress_updated_at", hint: "Actual pct − Planned Actual pct (automatic).", computed: { actual: "progress_percentage", planned: "planned_actual_pct" } },
       { key: "planned_pcma_pct", label: "Planned PCMA pct (%)", type: "percent" },
       { key: "pcma_pct", label: "PCMA pct (%)", type: "percent" },
-      { key: "remarks_pcma", label: "Remarks for PCMA", type: "textarea" },
-      { key: "slippage_pcma", label: "Slippage for PCMA", type: "slippage", hint: "PCMA pct − Planned PCMA pct (automatic).", computed: { actual: "pcma_pct", planned: "planned_pcma_pct" } },
+      { key: "slippage_pcma", label: "Slippage for PCMA", type: "slippage", blankAfter: true, updatedKey: "pcma_updated_at", hint: "PCMA pct − Planned PCMA pct (automatic).", computed: { actual: "pcma_pct", planned: "planned_pcma_pct" } },
     ],
   },
 ];
